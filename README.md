@@ -115,44 +115,44 @@ LiteQuery передается внутри ADNLQuery как `query:bytes`, а �
 
 Пример пакета в hex:
 ```
-74000000 -> размер пакета (116)
-5fb13e11977cb5cff0fbf7f23f674d734cb7c4bf01322c5e6b928c5d8ea09cfd -> nonce
-  7af98bb4 -> ADNLQuery
-  77c1545b96fa136b8e01cc08338bec47e8a43215492dda6d4d7e286382bb00c4 -> query_id
-    0c -> размер массива
-    df068c79 -> LiteQuery
-      04 -> размер массива
-      2ee6b589 -> getMasterchainInfo
-      000000 -> 3 байта падинг
-    000000 -> 3 байта падинг
-ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164 -> sha256
+74000000                                                             -> размер пакета (116)
+5fb13e11977cb5cff0fbf7f23f674d734cb7c4bf01322c5e6b928c5d8ea09cfd     -> nonce
+  7af98bb4                                                           -> ADNLQuery
+  77c1545b96fa136b8e01cc08338bec47e8a43215492dda6d4d7e286382bb00c4   -> query_id
+    0c                                                               -> размер массива
+    df068c79                                                         -> LiteQuery
+      04                                                             -> размер массива
+      2ee6b589                                                       -> getMasterchainInfo
+      000000                                                         -> 3 байта падинг
+    000000                                                           -> 3 байта падинг
+ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 ```
 
 В ответ мы ожидаем получить [liteServer.masterchainInfo](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L30) состоящий из last:[ton.blockIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/tonlib_api.tl#L51) state_root_hash:int256 и init:[tonNode.zeroStateIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L359).
 
 Полученый пакет десериализуется тем же самым образом что и отправленый, тот же алгоритм, но в обратную сторону, разве что для ответ завернут только в [ADNLAnswer](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L23).
 
-После расшифровки ответа, получаем пакет ответ вида:
+После расшифровки ответа, получаем пакет вида:
 ```
-20010000 -> размер пакета (288)
-5558b3227092e39782bd4ff9ef74bee875ab2b0661cf17efdfcd4da4e53e78e6 -> nonce
-  1684ac0f -> ADNLAnswer
-  77c1545b96fa136b8e01cc08338bec47e8a43215492dda6d4d7e286382bb00c4 -> query_id (идентичен запросу, используйте для маппинга ответа)
-    b8 -> размер массива
-    81288385 -> liteServer.masterchainInfo
-      last:tonNode.blockIdExt ->
-        ffffffff -> workchain:int
-        0000000000000080 -> shard:long
-        27405801 -> seqno:int   
-        e585a47bd5978f6a4fb2b56aa2082ec9deac33aaae19e78241b97522e1fb43d4 -> root_hash:int256
-        876851b60521311853f59c002d46b0bd80054af4bce340787a00bd04e0123517 -> file_hash:int256
-      8b4d3b38b06bb484015faf9821c3ba1c609a25b74f30e1e585b8c8e820ef0976 -> state_root_hash:int256
-      init:tonNode.zeroStateIdExt -> 
-        ffffffff -> workchain:int
-        17a3a92992aabea785a7a090985a265cd31f323d849da51239737e321fb05569 -> root_hash:int256      
-        5e994fcf4d425c0a6ce6a792594b7173205f740a39cd56f537defd28b48a0f6e -> file_hash:int256
-    000000 -> падинг 3 байта
-520c46d1ea4daccdf27ae21750ff4982d59a30672b3ce8674195e8a23e270d21 -> sha256
+20010000                                                                  -> размер пакета (288)
+5558b3227092e39782bd4ff9ef74bee875ab2b0661cf17efdfcd4da4e53e78e6          -> nonce
+  1684ac0f                                                                -> ADNLAnswer
+  77c1545b96fa136b8e01cc08338bec47e8a43215492dda6d4d7e286382bb00c4        -> query_id (идентичен запросу)
+    b8                                                                    -> размер массива
+    81288385                                                              -> liteServer.masterchainInfo
+                                                                          last:tonNode.blockIdExt
+        ffffffff                                                          -> workchain:int
+        0000000000000080                                                  -> shard:long
+        27405801                                                          -> seqno:int   
+        e585a47bd5978f6a4fb2b56aa2082ec9deac33aaae19e78241b97522e1fb43d4  -> root_hash:int256
+        876851b60521311853f59c002d46b0bd80054af4bce340787a00bd04e0123517  -> file_hash:int256
+      8b4d3b38b06bb484015faf9821c3ba1c609a25b74f30e1e585b8c8e820ef0976    -> state_root_hash:int256
+                                                                          init:tonNode.zeroStateIdExt 
+        ffffffff                                                          -> workchain:int
+        17a3a92992aabea785a7a090985a265cd31f323d849da51239737e321fb05569  -> root_hash:int256      
+        5e994fcf4d425c0a6ce6a792594b7173205f740a39cd56f537defd28b48a0f6e  -> file_hash:int256
+    000000                                                                -> падинг 3 байта
+520c46d1ea4daccdf27ae21750ff4982d59a30672b3ce8674195e8a23e270d21          -> sha256
 ```
 
 ## Дополнительные технические детали хендшейка
