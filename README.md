@@ -176,7 +176,7 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 1. mode:# -> то что и отправляли - 4.
 2. id:tonNode.blockIdExt -> наш мастер блок относительно которого выл выполнен метод
 3. shardblk:tonNode.blockIdExt -> шард блок в котором находится аккаунт контракта
-4. exit_code:int -> код выхода при выполнении метода, если все успешно то = 1
+4. exit_code:int -> код выхода при выполнении метода, если все успешно то = 1, если нет - равен коду исключения
 5. result:mode.2?bytes -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](#bag-of-cells), содержаший возвращенные методом значения.
 
 Разберем вызов и получение результата от метода `a2` контракта `EQBL2_3lMiyywU17g-or8N7v9hDmPCpttzBPE2isF2GTzpK4`:
@@ -193,9 +193,16 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 Заполняем наш запрос:
 * mode = 4, нам нужен только результат -> `04000000`
 * id = результат выполнения getMasterchainInfo
-* account = воркчеин 0, и int256 [полученый из адреса нашего контракта](#Адреса)
+* account = воркчеин 0 (4 байта `00000000`), и int256 [полученый из адреса нашего контракта](#Адреса), тоесть 32 байта `4bdbfde5322cb2c14d7b83ea2bf0deeff610e63c2a6db7304f1368ac176193ce`
 * method_id = [вычисленый](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16) id от `a2` -> `0a2e010000000000`
 * params:bytes = Наш метод не принимает входных параметров, значит нам нужно передать ему пустой стек (`000000`, ячейка 3 байта - стек 0 глубины) сериализованый в [BoC](#bag-of-cells) -> `b5ee9c72010101010005000006000000` -> сериализуем в bytes и получаем `10b5ee9c72410101010005000006000000000000` 0x10 - размер, 3 байта в конце - падинг
+
+В ответе получаем:
+* mode:# -> не интересен
+* id:tonNode.blockIdExt -> не интересен
+* shardblk:tonNode.blockIdExt -> не интересен
+* exit_code:int -> равен 1 если все успешно
+* result:mode.2?bytes -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) содержащий возвращенные методом данные в формате BoC, его мы распакуем.
 
 TODO
 
