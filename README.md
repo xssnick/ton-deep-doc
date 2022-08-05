@@ -240,6 +240,9 @@ vm_stk_cons#_ {n:#} rest:^(VmStackList n) tos:VmStackValue = VmStackList (n + 1)
 
 [Пример реализации](https://github.com/xssnick/tonutils-go/blob/master/ton/runmethod.go#L24)
 
+##### Другие методы
+Теперь, изучив всю информацию, вы можете вызывать и обрабатывать ответы и от других методов lite-server'а. Принцип тот же :)
+
 ### Адреса
 
 Стандартный адрес вида `EQBL2_3lMiyywU17g-or8N7v9hDmPCpttzBPE2isF2GTzpK4` является байтами в кодировке base64 uri. 
