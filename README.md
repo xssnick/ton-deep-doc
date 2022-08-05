@@ -169,7 +169,7 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 1. mode:# - uint32 битовая маска того что мы хотим видеть в ответе, например result:mode.2?bytes будет присутствовать в ответе только если бит с индексом 2 равен единице.
 2. id:tonNode.blockIdExt - наш стейт мастер блока, который мы получили в прошлой главе.
 3. account:[liteServer.accountId](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L27) - воркчеин и данные адреса смарт контракта.
-4. method_id:long - 8 байт в которых crc16 от имени вызываемого метода и установленый 17й бит [[Рассчет]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
+4. method_id:long - 8 байт в которых crc16 с таблицей XMODEM от имени вызываемого метода и установленый 17й бит [[Рассчет]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
 5. params:bytes - [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](#bag-of-cells), содержаший аргументы для вызова метода. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/tlb/stack.go)
 
 Например нам нужен только `result:mode.2?bytes`, тогда наш mode будет равен 0b100, тоесть 4. В ответ мы получим:
@@ -190,13 +190,24 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 }
 ```
 
-
+Заполняем наш запрос:
+* mode = 4, нам нужен только результат -> 04000000
+* id = результат выполнения getMasterchainInfo
+* account = воркчеин 0, и int256 [полученый из адреса нашего контракта](#Адреса)
+* method_id = вычесленый crc16 от `a2`
+* params:bytes = ячейка стека сериализованая в формат BoC. Разберем ее далее.
 
 TODO
 
+[Пример реализации](https://github.com/xssnick/tonutils-go/blob/master/ton/runmethod.go#L24)
+
 ### Адреса
 
+TODO
+
 ### Bag of Cells
+Bag of Cells - формат сериализации ячеек (cells) в массив байт.
+
 TODO
 
 Примеры реализации BoC: [Сериализация](https://github.com/xssnick/tonutils-go/blob/master/tvm/cell/serialize.go), [Десериализация](https://github.com/xssnick/tonutils-go/blob/master/tvm/cell/parse.go)
