@@ -157,7 +157,7 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 
 ##### runSmcMethod
 Мы уже умеем получать блок мастерчеина, значит теперь мы можем вызывать любые методы лайт-сервера.
-Разберем **runSmcMethod** - это метод которые вызывает функцию из смарт контракта и возвращает результат. Здесь нам потребуется понять некоторые новые типы данных, такие как [TL-B](https://ton.org/docs/#/overviews/TL-B), [Cell](https://ton.org/docs/#/overviews/Cells) и [BoC](#Bag_of_Cells).
+Разберем **runSmcMethod** - это метод которые вызывает функцию из смарт контракта и возвращает результат. Здесь нам потребуется понять некоторые новые типы данных, такие как [TL-B](https://ton.org/docs/#/overviews/TL-B), [Cell](https://ton.org/docs/#/overviews/Cells) и [BoC](#bag-of-cells).
 
 Для выполнения метода смарт-контракта нам нужно отправить запрос по TL схеме:
 `liteServer.runSmcMethod mode:# id:tonNode.blockIdExt account:liteServer.accountId method_id:long params:bytes = liteServer.RunMethodResult`
@@ -170,17 +170,36 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 2. id:tonNode.blockIdExt - наш стейт мастер блока, который мы получили в прошлой главе.
 3. account:[liteServer.accountId](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L27) - воркчеин и данные адреса смарт контракта.
 4. method_id:long - 8 байт в которых crc16 от имени вызываемого метода и установленый 17й бит [[Рассчет]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
-5. params:bytes - [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в BoC, содержаший аргументы для вызова метода. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/tlb/stack.go)
+5. params:bytes - [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](#bag-of-cells), содержаший аргументы для вызова метода. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/tlb/stack.go)
 
 Например нам нужен только `result:mode.2?bytes`, тогда наш mode будет равен 0b100, тоесть 4. В ответ мы получим:
 1. mode:# -> то что и отправляли - 4.
 2. id:tonNode.blockIdExt -> наш мастер блок относительно которого выл выполнен метод
 3. shardblk:tonNode.blockIdExt -> шард блок в котором находится аккаунт контракта
+4. exit_code:int -> код выхода при выполнении метода, если все успешно то = 1
+5. result:mode.2?bytes -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](#bag-of-cells), содержаший возвращенные методом значения.
+
+Разберем вызов и получение результата от метода `a2()` контракта `EQBL2_3lMiyywU17g-or8N7v9hDmPCpttzBPE2isF2GTzpK4`:
+
+Код метода на FunC:
+```
+(cell, cell) a2() method_id {
+  cell a = begin_cell().store_uint(0xAABBCC8, 32).end_cell();
+  cell b = begin_cell().store_uint(0xCCFFCC1, 32).end_cell();
+  return (a, b);
+}
+```
+
+
 
 TODO
+
+### Адреса
 
 ### Bag of Cells
 TODO
+
+Примеры реализации BoC: [Сериализация](https://github.com/xssnick/tonutils-go/blob/master/tvm/cell/serialize.go), [Десериализация](https://github.com/xssnick/tonutils-go/blob/master/tvm/cell/parse.go)
 
 ## Дополнительные технические детали хендшейка
 
