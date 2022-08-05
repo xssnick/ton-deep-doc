@@ -155,6 +155,26 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 520c46d1ea4daccdf27ae21750ff4982d59a30672b3ce8674195e8a23e270d21          -> sha256
 ```
 
+##### runSmcMethod
+Мы уже умеем получать блок мастерчеина, значит теперь мы можем вызывать любые методы лайт-сервера.
+Разберем **runSmcMethod** - это метод которые вызывает функцию из смарт контракта и возвращает результат. Здесь нам потребуется понять некоторые новые типы данных, такие как [TL-B](https://ton.org/docs/#/overviews/TL-B), [Cell](https://ton.org/docs/#/overviews/Cells) и [BoC](#Bag_of_Cells).
+
+Для выполнения метода смарт-контракта нам нужно отправить запрос по TL схеме:
+`liteServer.runSmcMethod mode:# id:tonNode.blockIdExt account:liteServer.accountId method_id:long params:bytes = liteServer.RunMethodResult`
+
+И ждать ответ вида:
+`liteServer.runMethodResult mode:# id:tonNode.blockIdExt shardblk:tonNode.blockIdExt shard_proof:mode.0?bytes proof:mode.0?bytes state_proof:mode.1?bytes init_c7:mode.3?bytes lib_extras:mode.4?bytes exit_code:int result:mode.2?bytes = liteServer.RunMethodResult;`
+
+В запросе мы видим такие поля:
+1. mode:# - uint32 битовая маска того что мы хотим видеть в ответе, например result:mode.2?bytes будет присутствовать в ответе только если бит с индексом 2 равен единице.
+2. id:tonNode.blockIdExt - наш стейт мастер блока, который мы получили в прошлой главе.
+3. account:[liteServer.accountId](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L27) - воркчеин и данные адреса смарт контракта.
+4. method_id:long - 8 байт в которых crc16 хэш от имени вызываемого метода и установленый 17й бит [[Рассчет]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
+5. params:bytes - [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в BoC, содержаший аргументы для вызова метода. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/tlb/stack.go)
+
+### Bag of Cells
+TODO
+
 ## Дополнительные технические детали хендшейка
 
 #### Получение айди ключа
@@ -190,6 +210,6 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 8. Сервер высчитывает: **4^5 mod 15 = 4**
 9. Общий ключ = **4**
 
-Детали самого ECDH будут опущены, чтобы не усложнять прочтение. Если интересно, то лучше почитать про это отдельно.
+Детали самого ECDH будут опущены, чтобы не усложнять прочтение. Он вычисляется с помощью 2 ключей, приватного и публичного, путем нахождения общей точки на кривой. Если интересно, то лучше почитать про это отдельно.
 
 [Пример кода](https://github.com/xssnick/tonutils-go/blob/2b5e5a0e6ceaf3f28309b0833cb45de81c580acc/liteclient/crypto.go#L32)
