@@ -169,8 +169,15 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 1. mode:# - uint32 битовая маска того что мы хотим видеть в ответе, например result:mode.2?bytes будет присутствовать в ответе только если бит с индексом 2 равен единице.
 2. id:tonNode.blockIdExt - наш стейт мастер блока, который мы получили в прошлой главе.
 3. account:[liteServer.accountId](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L27) - воркчеин и данные адреса смарт контракта.
-4. method_id:long - 8 байт в которых crc16 хэш от имени вызываемого метода и установленый 17й бит [[Рассчет]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
+4. method_id:long - 8 байт в которых crc16 от имени вызываемого метода и установленый 17й бит [[Рассчет]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
 5. params:bytes - [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в BoC, содержаший аргументы для вызова метода. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/tlb/stack.go)
+
+Например нам нужен только `result:mode.2?bytes`, тогда наш mode будет равен 0b100, тоесть 4. В ответ мы получим:
+1. mode:# -> то что и отправляли - 4.
+2. id:tonNode.blockIdExt -> наш мастер блок относительно которого выл выполнен метод
+3. shardblk:tonNode.blockIdExt -> шард блок в котором находится аккаунт контракта
+
+TODO
 
 ### Bag of Cells
 TODO
