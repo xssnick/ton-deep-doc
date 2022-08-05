@@ -179,7 +179,7 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 4. exit_code:int -> код выхода при выполнении метода, если все успешно то = 1
 5. result:mode.2?bytes -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](#bag-of-cells), содержаший возвращенные методом значения.
 
-Разберем вызов и получение результата от метода `a2()` контракта `EQBL2_3lMiyywU17g-or8N7v9hDmPCpttzBPE2isF2GTzpK4`:
+Разберем вызов и получение результата от метода `a2` контракта `EQBL2_3lMiyywU17g-or8N7v9hDmPCpttzBPE2isF2GTzpK4`:
 
 Код метода на FunC:
 ```
@@ -194,8 +194,8 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 * mode = 4, нам нужен только результат -> 04000000
 * id = результат выполнения getMasterchainInfo
 * account = воркчеин 0, и int256 [полученый из адреса нашего контракта](#Адреса)
-* method_id = вычесленый crc16 от `a2`
-* params:bytes = ячейка стека сериализованая в формат BoC. Разберем ее далее.
+* method_id = [вычисленый](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16) id от `a2`
+* params:bytes = Наш метод не принимает входных параметров, значит нам нужно передать ему пустой стек () сериализованый в BoC -> 
 
 TODO
 
