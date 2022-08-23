@@ -376,14 +376,15 @@ account_none$0 = Account;
 account$1 addr:MsgAddressInt storage_stat:StorageInfo
           storage:AccountStorage = Account;
 ```
-Как мы видим наша структура ссылается на другие структуры, такие как:
+Наша структура ссылается на другие, такие как:
 ```
 anycast_info$_ depth:(#<= 30) { depth >= 1 } rewrite_pfx:(bits depth) = Anycast;
 addr_std$10 anycast:(Maybe Anycast) workchain_id:int8 address:bits256  = MsgAddressInt;
 addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9) workchain_id:int32 address:(bits addr_len) = MsgAddressInt;
    
 storage_info$_ used:StorageUsed last_paid:uint32 due_payment:(Maybe Grams) = StorageInfo;
-
+storage_used$_ cells:(VarUInteger 7) bits:(VarUInteger 7) public_cells:(VarUInteger 7) = StorageUsed;
+  
 account_storage$_ last_trans_lt:uint64 balance:CurrencyCollection state:AccountState = AccountStorage;
 
 currencies$_ grams:Grams other:ExtraCurrencyCollection = CurrencyCollection;
@@ -415,7 +416,31 @@ account$1 addr:MsgAddressInt storage_stat:StorageInfo
 addr_std$10 anycast:(Maybe Anycast) workchain_id:int8 address:bits256  = MsgAddressInt;
 addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9) workchain_id:int32 address:(bits addr_len) = MsgAddressInt;
 ```
-Чтобы понять с каким именно работать мы как и в прошлый раз читаем биты префикса, в этот раз мы читаем 2 бита. Берем наш байт и отрезаем уже прочитаный бит, остается `1000000`, читаем первые 2 бита и получаем `10`, значит мы работаем с `addr_std$10`.
+Чтобы понять с каким именно работать, мы, как и в прошлый раз, читаем биты префикса, в этот раз мы читаем 2 бита. Берем наш байт и отрезаем уже прочитаный бит, остается `1000000`, читаем первые 2 бита и получаем `10`, значит мы работаем с `addr_std$10`.
+
+Следующим мы должны распарсить `anycast:(Maybe Anycast)`, Maybe значит что мы должны прочитать 1 бит, и если там единица - читать Anycast, иначе пропустить. Наши оставшиеся биты это `00000`, читаем 1 бит, это 0, значит пропускаем Anycast.
+
+Далее у нас идет `workchain_id:int8`, тут все просто, читаем 8 бит, это будет айди воркчеина. Из нашего байта у нас осталось только 4 бита - `0000`. Преобразуем следующий байт `02` в бинарный вид - `00000010`. Вместе с оставшимися 4мя битами у нас получится - `000000000010`. Читаем 8 бит, все нули, значит воркчеин равен 0.
+
+Далее читаем `address:bits256`, это 256 бит адреса, по тому же принципу что и с `workchain_id`. Прочитав - мы получим `21137B0BC47669B3267F1DE70CBB0CEF5C728B8D8C7890451E8613B2D8998270` в hex представлении.
+
+
+
+Мы прочитали адрес `addr:MsgAddressInt`, далее у нас идет `storage_stat:StorageInfo` из основной структуры, его схема:
+```
+storage_info$_ used:StorageUsed last_paid:uint32 due_payment:(Maybe Grams) = StorageInfo;
+```
+Первым идет `used:StorageUsed`, со схемой:
+```
+storage_used$_ cells:(VarUInteger 7) bits:(VarUInteger 7) public_cells:(VarUInteger 7) = StorageUsed;
+```
+Это количество используемых ячеек и битов для хранения данных аккаунта. Каждое поле определено как `VarUInteger 7`, что значит uint динамического размера, но максимум 7 бит. Понять как он устроен можно по схеме:
+```
+var_uint$_ {n:#} len:(#< n) value:(uint (len * 8)) = VarUInteger n;
+```
+В нашем случае n будет равен 7. В len у нас будет `(#< 7)` что значит количество бит которое вмещает число 7, определить его можн переведя 7 в бинарный вид - `111`, получаем 3 бита, значит длина len = 3 бита. А value это `(uint (len * 8))`. Чтобы его определить нам нужно прочитать 3 бита длины, получить число и умножить на 8, это будет размер `value`, тоесть количество битов которое нужно прочитать для получения значения VarUInteger.
+
+Прочитаем `cells:(VarUInteger 7)`, возьмем наши следующие биты из корневой ячейки, возьмем 16 бит для удобства - `26A8`, в бинарном виде это `0010011010101000`. Читаем первые 3 бита len, это `001`, тоесть 1, получим размер (uint (1 * 8)), получим uint 8, читаем 8 бит, это будет `cells`, `00110101`, тоесть 53 в десятиричном виде. Делаем тоже самое для `bits` и `public_cells`.
 
 TODO
 
