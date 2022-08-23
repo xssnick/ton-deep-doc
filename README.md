@@ -241,6 +241,183 @@ vm_stk_cons#_ {n:#} rest:^(VmStackList n) tos:VmStackValue = VmStackList (n + 1)
 Обратите внимание, что они идут в обратном порядке. Точно так же нужно передавать и аргументы при вызове функции - в обратном порядке от того, что мы видим в коде FunC. 
 
 [Пример реализации](https://github.com/xssnick/tonutils-go/blob/master/ton/runmethod.go#L24)
+##### getAccountState
+Для получения данных о состоянии аккаунта, таких как баланс, код и хранимые данные мы можем использовать [getAccountState](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L68). Для запроса нам понадобится [свежий мастер блок](#) и адрес аккаунта. В ответ мы получим TL структуру [AccountState](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L38).
+
+Разберем AccountState TL схему:
+```
+liteServer.accountState id:tonNode.blockIdExt shardblk:tonNode.blockIdExt shard_proof:bytes proof:bytes state:bytes = liteServer.AccountState;
+```
+1. `id` - это наш мастер блок, относительно которого мы получили данные.
+2. `shardblk` - блок шарды воркчеина на котором находится наш аккаунт, относительно которого мы получили данные.
+3. `shard_proof` - merkle пруф блока шарды.
+4. `proof` - merkle пруф состояния аккаунта.
+5. `state` - [BoC](#bag-of-cells) TLB [схемы состояния аккаунта](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L232).
+
+Из всех этих данных то что нам нужно находится в `state`, разберем его. 
+
+Например получим состояние аккаунта TF `EQAhE3sLxHZpsyZ_HecMuwzvXHKLjYx4kEUehhOy2JmCcHCT`, `state` в ответе будет:
+```
+b5ee9c720102350100051e000277c0021137b0bc47669b3267f1de70cbb0cef5c728b8d8c7890451e8613b2d899827026a886043179d3f6000006e233be8722201d7d239dba7d818134001020114ff00f4a413f4bcf2c80b0d021d0000000105036248628d00000000e003040201cb05060013a03128bb16000000002002012007080043d218d748bc4d4f4ff93481fd41c39945d5587b8e2aa2d8a35eaf99eee92d9ba96004020120090a0201200b0c00432c915453c736b7692b5b4c76f3a90e6aeec7a02de9876c8a5eee589c104723a18020004307776cd691fbe13e891ed6dbd15461c098b1b95c822af605be8dc331e7d45571002000433817dc8de305734b0c8a3ad05264e9765a04a39dbe03dd9973aa612a61f766d7c02000431f8c67147ceba1700d3503e54c0820f965f4f82e5210e9a3224a776c8f3fad1840200201200e0f020148101104daf220c7008e8330db3ce08308d71820f90101d307db3c22c00013a1537178f40e6fa1f29fdb3c541abaf910f2a006f40420f90101d31f5118baf2aad33f705301f00a01c20801830abcb1f26853158040f40e6fa120980ea420c20af2670edff823aa1f5340b9f2615423a3534e2a2d2b2c0202cc12130201201819020120141502016616170003d1840223f2980bc7a0737d0986d9e52ed9e013c7a21c2b2f002d00a908b5d244a824c8b5d2a5c0b5007404fc02ba1b04a0004f085ba44c78081ba44c3800740835d2b0c026b500bc02f21633c5b332781c75c8f20073c5bd0032600201201a1b02012020210115bbed96d5034705520db3c8340201481c1d0201201e1f0173b11d7420c235c6083e404074c1e08075313b50f614c81e3d039be87ca7f5c2ffd78c7e443ca82b807d01085ba4d6dc4cb83e405636cf0069006031003daeda80e800e800fa02017a0211fc8080fc80dd794ff805e47a0000e78b64c00015ae19574100d56676a1ec40020120222302014824250151b7255b678626466a4610081e81cdf431c24d845a4000331a61e62e005ae0261c0b6fee1c0b77746e102d0185b5599b6786abe06fedb1c68a2270081e8f8df4a411c4605a400031c34410021ae424bae064f613990039e2ca840090081e886052261c52261c52265c4036625ccd88302d02012026270203993828290111ac1a6d9e2f81b609402d0015adf94100cc9576a1ec1840010da936cf0557c1602d0015addc2ce0806ab33b50f6200220db3c02f265f8005043714313db3ced542d34000ad3ffd3073004a0db3c2fae5320b0f26212b102a425b3531cb9b0258100e1aa23a028bcb0f269820186a0f8010597021110023e3e308e8d11101fdb3c40d778f44310bd05e254165b5473e7561053dcdb3c54710a547abc2e2f32300020ed44d0d31fd307d307d33ff404f404d10048018e1a30d20001f2a3d307d3075003d70120f90105f90115baf2a45003e06c2170542013000c01c8cbffcb0704d6db3ced54f80f70256e5389beb198106e102d50c75f078f1b30542403504ddb3c5055a046501049103a4b0953b9db3c5054167fe2f800078325a18e2c268040f4966fa52094305303b9de208e1638393908d2000197d3073016f007059130e27f080705926c31e2b3e63006343132330060708e2903d08308d718d307f40430531678f40e6fa1f2a5d70bff544544f910f2a6ae5220b15203bd14a1236ee66c2232007e5230be8e205f03f8009322d74a9802d307d402fb0002e83270c8ca0040148040f44302f0078e1771c8cb0014cb0712cb0758cf0158cf1640138040f44301e201208e8a104510344300db3ced54925f06e234001cc8cb1fcb07cb07cb3ff400f400c9
+```
+
+[Распарсим этот BoC](#bag-of-cells) и получим 
+
+<details>
+  <summary>большую ячейку</summary>
+  
+  ```
+  473[C0021137B0BC47669B3267F1DE70CBB0CEF5C728B8D8C7890451E8613B2D899827026A886043179D3F6000006E233BE8722201D7D239DBA7D818130_] -> {
+    80[FF00F4A413F4BCF2C80B] -> {
+      2[0_] -> {
+        4[4_] -> {
+          8[CC] -> {
+            2[0_] -> {
+              13[D180],
+              141[F2980BC7A0737D0986D9E52ED9E013C7A218] -> {
+                40[D3FFD30730],
+                48[01C8CBFFCB07]
+              }
+            },
+            6[64] -> {
+              178[00A908B5D244A824C8B5D2A5C0B5007404FC02BA1B048_],
+              314[085BA44C78081BA44C3800740835D2B0C026B500BC02F21633C5B332781C75C8F20073C5BD00324_]
+            }
+          },
+          2[0_] -> {
+            2[0_] -> {
+              84[BBED96D5034705520DB3C_] -> {
+                112[C8CB1FCB07CB07CB3FF400F400C9]
+              },
+              4[4_] -> {
+                2[0_] -> {
+                  241[AEDA80E800E800FA02017A0211FC8080FC80DD794FF805E47A0000E78B648_],
+                  81[AE19574100D56676A1EC0_]
+                },
+                458[B11D7420C235C6083E404074C1E08075313B50F614C81E3D039BE87CA7F5C2FFD78C7E443CA82B807D01085BA4D6DC4CB83E405636CF0069004_] -> {
+                  384[708E2903D08308D718D307F40430531678F40E6FA1F2A5D70BFF544544F910F2A6AE5220B15203BD14A1236EE66C2232]
+                }
+              }
+            },
+            2[0_] -> {
+              2[0_] -> {
+                323[B7255B678626466A4610081E81CDF431C24D845A4000331A61E62E005AE0261C0B6FEE1C0B77746E0_] -> {
+                  128[ED44D0D31FD307D307D33FF404F404D1]
+                },
+                531[B5599B6786ABE06FEDB1C68A2270081E8F8DF4A411C4605A400031C34410021AE424BAE064F613990039E2CA840090081E886052261C52261C52265C4036625CCD882_] -> {
+                  128[ED44D0D31FD307D307D33FF404F404D1]
+                }
+              },
+              4[4_] -> {
+                2[0_] -> {
+                  65[AC1A6D9E2F81B6090_] -> {
+                    128[ED44D0D31FD307D307D33FF404F404D1]
+                  },
+                  81[ADF94100CC9576A1EC180_]
+                },
+                12[993_] -> {
+                  50[A936CF0557C14_] -> {
+                    128[ED44D0D31FD307D307D33FF404F404D1]
+                  },
+                  82[ADDC2CE0806AB33B50F60_]
+                }
+              }
+            }
+          }
+        },
+        872[F220C7008E8330DB3CE08308D71820F90101D307DB3C22C00013A1537178F40E6FA1F29FDB3C541ABAF910F2A006F40420F90101D31F5118BAF2AAD33F705301F00A01C20801830ABCB1F26853158040F40E6FA120980EA420C20AF2670EDFF823AA1F5340B9F2615423A3534E] -> {
+          128[DB3C02F265F8005043714313DB3CED54] -> {
+            128[ED44D0D31FD307D307D33FF404F404D1],
+            112[C8CB1FCB07CB07CB3FF400F400C9]
+          },
+          128[ED44D0D31FD307D307D33FF404F404D1],
+          40[D3FFD30730],
+          640[DB3C2FAE5320B0F26212B102A425B3531CB9B0258100E1AA23A028BCB0F269820186A0F8010597021110023E3E308E8D11101FDB3C40D778F44310BD05E254165B5473E7561053DCDB3C54710A547ABC] -> {
+            288[018E1A30D20001F2A3D307D3075003D70120F90105F90115BAF2A45003E06C2170542013],
+            48[01C8CBFFCB07],
+            504[5230BE8E205F03F8009322D74A9802D307D402FB0002E83270C8CA0040148040F44302F0078E1771C8CB0014CB0712CB0758CF0158CF1640138040F44301E2],
+            856[DB3CED54F80F70256E5389BEB198106E102D50C75F078F1B30542403504DDB3C5055A046501049103A4B0953B9DB3C5054167FE2F800078325A18E2C268040F4966FA52094305303B9DE208E1638393908D2000197D3073016F007059130E27F080705926C31E2B3E63006] -> {
+              112[C8CB1FCB07CB07CB3FF400F400C9],
+              384[708E2903D08308D718D307F40430531678F40E6FA1F2A5D70BFF544544F910F2A6AE5220B15203BD14A1236EE66C2232],
+              504[5230BE8E205F03F8009322D74A9802D307D402FB0002E83270C8CA0040148040F44302F0078E1771C8CB0014CB0712CB0758CF0158CF1640138040F44301E2],
+              128[8E8A104510344300DB3CED54925F06E2] -> {
+                112[C8CB1FCB07CB07CB3FF400F400C9]
+              }
+            }
+          }
+        }
+      }
+    },
+    114[0000000105036248628D00000000C_] -> {
+      7[CA] -> {
+        2[0_] -> {
+          2[0_] -> {
+            266[2C915453C736B7692B5B4C76F3A90E6AEEC7A02DE9876C8A5EEE589C104723A1800_],
+            266[07776CD691FBE13E891ED6DBD15461C098B1B95C822AF605BE8DC331E7D45571000_]
+          },
+          2[0_] -> {
+            266[3817DC8DE305734B0C8A3AD05264E9765A04A39DBE03DD9973AA612A61F766D7C00_],
+            266[1F8C67147CEBA1700D3503E54C0820F965F4F82E5210E9A3224A776C8F3FAD18400_]
+          }
+        },
+        269[D218D748BC4D4F4FF93481FD41C39945D5587B8E2AA2D8A35EAF99EEE92D9BA96000]
+      },
+      74[A03128BB16000000000_]
+    }
+  }
+  ```
+
+</details>
+
+Теперь нам нужно распарсить ячейку в соответствии с TL-B структурой:
+```
+account_none$0 = Account;
+
+account$1 addr:MsgAddressInt storage_stat:StorageInfo
+          storage:AccountStorage = Account;
+```
+Как мы видим наша структура ссылается на другие структуры, такие как:
+```
+anycast_info$_ depth:(#<= 30) { depth >= 1 } rewrite_pfx:(bits depth) = Anycast;
+addr_std$10 anycast:(Maybe Anycast) workchain_id:int8 address:bits256  = MsgAddressInt;
+addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9) workchain_id:int32 address:(bits addr_len) = MsgAddressInt;
+   
+storage_info$_ used:StorageUsed last_paid:uint32 due_payment:(Maybe Grams) = StorageInfo;
+
+account_storage$_ last_trans_lt:uint64 balance:CurrencyCollection state:AccountState = AccountStorage;
+
+currencies$_ grams:Grams other:ExtraCurrencyCollection = CurrencyCollection;
+           
+var_uint$_ {n:#} len:(#< n) value:(uint (len * 8)) = VarUInteger n;
+var_int$_ {n:#} len:(#< n) value:(int (len * 8)) = VarInteger n;
+nanograms$_ amount:(VarUInteger 16) = Grams;  
+           
+account_uninit$00 = AccountState;
+account_active$1 _:StateInit = AccountState;
+account_frozen$01 state_hash:bits256 = AccountState;
+```
+
+Как мы видим ячейка содержит очень много данных, но мы разберем получение основных: баланс, код, хранимые данные и состояние.
+
+Начнем парсинг. В данных корневой ячейки мы имеем:
+```
+C0021137B0BC47669B3267F1DE70CBB0CEF5C728B8D8C7890451E8613B2D899827026A886043179D3F6000006E233BE8722201D7D239DBA7D818130_
+```
+Посмотрим на нашу основную TL-B структуру, мы видим что у нас есть 2 варианта что там может быть - `account_none$0` или `account$1`. Понять какой вариант у нас мы можем прочитав перфикс заявленый после символа $, в нашем случае это 1 бит, если там 0, то у нас `account_none`, если 1, то `account`. 
+
+Для удобства мы будем работать с битами, конвертируя байты по одному. Наш первый байт это `C0`, в битовом представлении это `11000000`. Первый бит = 1, значит мы работаем с `account$1` и буде использовать схему:
+```
+account$1 addr:MsgAddressInt storage_stat:StorageInfo
+          storage:AccountStorage = Account;
+```
+Далее у нас идет `addr:MsgAddressInt`, мы видим что для MsgAddressInt у нас тоже есть несколько вариантов:
+```
+addr_std$10 anycast:(Maybe Anycast) workchain_id:int8 address:bits256  = MsgAddressInt;
+addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9) workchain_id:int32 address:(bits addr_len) = MsgAddressInt;
+```
+Чтобы понять с каким именно работать мы как и в прошлый раз читаем биты префикса, в этот раз мы читаем 2 бита. Берем наш байт и отрезаем уже прочитаный бит, остается `1000000`, читаем первые 2 бита и получаем `10`, значит мы работаем с `addr_std$10`.
+
+TODO
 
 ##### Другие методы
 Теперь, изучив всю информацию, вы можете вызывать и обрабатывать ответы и от других методов lite-server'а. Принцип тот же :)
