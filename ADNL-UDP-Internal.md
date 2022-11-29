@@ -90,7 +90,7 @@ dht.getSignedAddressList = dht.Node
 ```
 adnl.message.query query_id:int256 query:bytes = adnl.Message
 ```
-В качестве `query_id` генерируем случайные 32 байта, в качестве query - используем наш основной запрос, [обернутый как массив байтов](/TL.md#кодирование-bytes-в-tl). Получаем:
+В качестве `query_id` генерируем случайные 32 байта, в качестве `query` - используем наш основной запрос, [обернутый как массив байтов](/TL.md#кодирование-bytes-в-tl). Получаем:
 ```
 7af98bb4                                                         -- TL ID adnl.message.query
 e0e48516d6b87478d9225ca9a6600f6b613aa85c39957188f093dc8e355fc551 -- query_id
