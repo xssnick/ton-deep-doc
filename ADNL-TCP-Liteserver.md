@@ -144,7 +144,7 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 
 ##### runSmcMethod
 Мы уже умеем получать блок мастерчеина, значит теперь мы можем вызывать любые методы лайт-сервера.
-Разберем **runSmcMethod** - это метод, который вызывает функцию из смарт контракта и возвращает результат. Здесь нам потребуется понять некоторые новые типы данных, такие как [TL-B](/TL-B.md), [Cell](https://ton.org/docs/learn/overviews/Cells) и [BoC](#bag-of-cells).
+Разберем **runSmcMethod** - это метод, который вызывает функцию из смарт контракта и возвращает результат. Здесь нам потребуется понять некоторые новые типы данных, такие как [TL-B](/TL-B.md), [Cell](https://ton.org/docs/learn/overviews/Cells) и [BoC](/Cells-BoC.md#bag-of-cells).
 
 Для выполнения метода смарт-контракта нам нужно отправить запрос по TL схеме:
 `liteServer.runSmcMethod mode:# id:tonNode.blockIdExt account:liteServer.accountId method_id:long params:bytes = liteServer.RunMethodResult`
@@ -157,14 +157,14 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 2. id:tonNode.blockIdExt - наш стейт мастер блока, который мы получили в прошлой главе.
 3. account:[liteServer.accountId](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L27) - воркчеин и данные адреса смарт контракта.
 4. method_id:long - 8 байт, в которых пишется crc16 с таблицей XMODEM от имени вызываемого метода и установленый 17й бит [[Расчет]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
-5. params:bytes - [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](#bag-of-cells), содержащий аргументы для вызова метода. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/tlb/stack.go)
+5. params:bytes - [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](/Cells-BoC.md#bag-of-cells), содержащий аргументы для вызова метода. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/tlb/stack.go)
 
 Например, нам нужен только `result:mode.2?bytes`, тогда наш mode будет равен 0b100, то есть 4. В ответ мы получим:
 1. mode:# -> то, что и отправляли, - 4.
 2. id:tonNode.blockIdExt -> наш мастер блок, относительно которого был выполнен метод
 3. shardblk:tonNode.blockIdExt -> шард блок, в котором находится аккаунт контракта
 4. exit_code:int -> 4 байта, которые являются кодом выхода при выполнении метода. Если все успешно, то = 0, если нет - равен коду исключения
-5. result:mode.2?bytes -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](#bag-of-cells), содержащий возвращенные методом значения.
+5. result:mode.2?bytes -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](/Cells-BoC.md#bag-of-cells), содержащий возвращенные методом значения.
 
 Разберем вызов и получение результата от метода `a2` контракта `EQBL2_3lMiyywU17g-or8N7v9hDmPCpttzBPE2isF2GTzpK4`:
 
@@ -180,9 +180,9 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 Заполняем наш запрос:
 * `mode` = 4, нам нужен только результат -> `04000000`
 * `id` = результат выполнения getMasterchainInfo
-* `account` = воркчеин 0 (4 байта `00000000`), и int256 [полученный из адреса нашего контракта](#Адреса), то есть 32 байта `4bdbfde5322cb2c14d7b83ea2bf0deeff610e63c2a6db7304f1368ac176193ce`
+* `account` = воркчеин 0 (4 байта `00000000`), и int256 [полученный из адреса нашего контракта](/Address.md#сериализация), то есть 32 байта `4bdbfde5322cb2c14d7b83ea2bf0deeff610e63c2a6db7304f1368ac176193ce`
 * `method_id` = [вычисленый](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16) id от `a2` -> `0a2e010000000000`
-* `params:bytes` = Наш метод не принимает входных параметров, значит нам нужно передать ему пустой стек (`000000`, ячейка 3 байта - стек 0 глубины) сериализованый в [BoC](#bag-of-cells) -> `b5ee9c72010101010005000006000000` -> сериализуем в bytes и получаем `10b5ee9c72410101010005000006000000000000` 0x10 - размер, 3 байта в конце - падинг.
+* `params:bytes` = Наш метод не принимает входных параметров, значит нам нужно передать ему пустой стек (`000000`, ячейка 3 байта - стек 0 глубины) сериализованый в [BoC](/Cells-BoC.md#bag-of-cells) -> `b5ee9c72010101010005000006000000` -> сериализуем в bytes и получаем `10b5ee9c72410101010005000006000000000000` 0x10 - размер, 3 байта в конце - падинг.
 
 В ответе получаем:
 * `mode:#` -> не интересен
@@ -191,7 +191,7 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 * `exit_code:int` -> равен 0, если все успешно
 * `result:mode.2?bytes` -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) содержащий возвращенные методом данные в формате BoC, его мы распакуем.
 
-Внутри `result` мы получили `b5ee9c7201010501001b000208000002030102020203030400080ccffcc1000000080aabbcc8`, это [BoC](#bag-of-cells) содержащий стек с данными. Когда мы десериализуем его, мы получим ячейку:
+Внутри `result` мы получили `b5ee9c7201010501001b000208000002030102020203030400080ccffcc1000000080aabbcc8`, это [BoC](/Cells-BoC.md#bag-of-cells) содержащий стек с данными. Когда мы десериализуем его, мы получим ячейку:
 ```
 32[00000203] -> {
   8[03] -> {
@@ -238,7 +238,7 @@ liteServer.accountState id:tonNode.blockIdExt shardblk:tonNode.blockIdExt shard_
 2. `shardblk` - блок шарды воркчеина, на котором находится наш аккаунт, относительно которого мы получили данные.
 3. `shard_proof` - merkle пруф блока шарды.
 4. `proof` - merkle пруф состояния аккаунта.
-5. `state` - [BoC](#bag-of-cells) TLB [схемы состояния аккаунта](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L232).
+5. `state` - [BoC](/Cells-BoC.md#bag-of-cells) TLB [схемы состояния аккаунта](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L232).
 
 Из всех этих данных то, что нам нужно, находится в `state`, разберем его. 
 
@@ -247,7 +247,7 @@ liteServer.accountState id:tonNode.blockIdExt shardblk:tonNode.blockIdExt shard_
 b5ee9c720102350100051e000277c0021137b0bc47669b3267f1de70cbb0cef5c728b8d8c7890451e8613b2d899827026a886043179d3f6000006e233be8722201d7d239dba7d818134001020114ff00f4a413f4bcf2c80b0d021d0000000105036248628d00000000e003040201cb05060013a03128bb16000000002002012007080043d218d748bc4d4f4ff93481fd41c39945d5587b8e2aa2d8a35eaf99eee92d9ba96004020120090a0201200b0c00432c915453c736b7692b5b4c76f3a90e6aeec7a02de9876c8a5eee589c104723a18020004307776cd691fbe13e891ed6dbd15461c098b1b95c822af605be8dc331e7d45571002000433817dc8de305734b0c8a3ad05264e9765a04a39dbe03dd9973aa612a61f766d7c02000431f8c67147ceba1700d3503e54c0820f965f4f82e5210e9a3224a776c8f3fad1840200201200e0f020148101104daf220c7008e8330db3ce08308d71820f90101d307db3c22c00013a1537178f40e6fa1f29fdb3c541abaf910f2a006f40420f90101d31f5118baf2aad33f705301f00a01c20801830abcb1f26853158040f40e6fa120980ea420c20af2670edff823aa1f5340b9f2615423a3534e2a2d2b2c0202cc12130201201819020120141502016616170003d1840223f2980bc7a0737d0986d9e52ed9e013c7a21c2b2f002d00a908b5d244a824c8b5d2a5c0b5007404fc02ba1b04a0004f085ba44c78081ba44c3800740835d2b0c026b500bc02f21633c5b332781c75c8f20073c5bd0032600201201a1b02012020210115bbed96d5034705520db3c8340201481c1d0201201e1f0173b11d7420c235c6083e404074c1e08075313b50f614c81e3d039be87ca7f5c2ffd78c7e443ca82b807d01085ba4d6dc4cb83e405636cf0069006031003daeda80e800e800fa02017a0211fc8080fc80dd794ff805e47a0000e78b64c00015ae19574100d56676a1ec40020120222302014824250151b7255b678626466a4610081e81cdf431c24d845a4000331a61e62e005ae0261c0b6fee1c0b77746e102d0185b5599b6786abe06fedb1c68a2270081e8f8df4a411c4605a400031c34410021ae424bae064f613990039e2ca840090081e886052261c52261c52265c4036625ccd88302d02012026270203993828290111ac1a6d9e2f81b609402d0015adf94100cc9576a1ec1840010da936cf0557c1602d0015addc2ce0806ab33b50f6200220db3c02f265f8005043714313db3ced542d34000ad3ffd3073004a0db3c2fae5320b0f26212b102a425b3531cb9b0258100e1aa23a028bcb0f269820186a0f8010597021110023e3e308e8d11101fdb3c40d778f44310bd05e254165b5473e7561053dcdb3c54710a547abc2e2f32300020ed44d0d31fd307d307d33ff404f404d10048018e1a30d20001f2a3d307d3075003d70120f90105f90115baf2a45003e06c2170542013000c01c8cbffcb0704d6db3ced54f80f70256e5389beb198106e102d50c75f078f1b30542403504ddb3c5055a046501049103a4b0953b9db3c5054167fe2f800078325a18e2c268040f4966fa52094305303b9de208e1638393908d2000197d3073016f007059130e27f080705926c31e2b3e63006343132330060708e2903d08308d718d307f40430531678f40e6fa1f2a5d70bff544544f910f2a6ae5220b15203bd14a1236ee66c2232007e5230be8e205f03f8009322d74a9802d307d402fb0002e83270c8ca0040148040f44302f0078e1771c8cb0014cb0712cb0758cf0158cf1640138040f44301e201208e8a104510344300db3ced54925f06e234001cc8cb1fcb07cb07cb3ff400f400c9
 ```
 
-[Распарсим этот BoC](#bag-of-cells) и получим 
+[Распарсим этот BoC](/Cells-BoC.md#bag-of-cells) и получим 
 
 <details>
   <summary>большую ячейку</summary>
