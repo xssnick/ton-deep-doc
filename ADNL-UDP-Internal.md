@@ -96,6 +96,7 @@ adnl.packetContents
   signature:flags.11?bytes                        -- подпись
   rand2:bytes                                     -- случайные 7 или 15 байт
         = adnl.PacketContents
+        
 ```
 
 После того как мы сериализовали все сообщения которые хотим отправить, мы можем приступать к сборке пакета, пакеты для отправки в канал отличаются по содержанию от пакетов которые отправляются до инициализации канала. Сначала разберем основной пакет, который используется для инициализации.
@@ -114,14 +115,14 @@ c6b41348                                                                  -- TL 
 02000000                                                                  -- vector adnl.Message, размер 2 сообщения   
    bbc373e6                                                                  -- TL ID adnl.message.createChannel
    d59d8e3991be20b54dde8b78b3af18b379a62fa30e64af361c75452f6af019d7          -- key
-   555c8763                                                                  -- date
+   555c8763                                                                  -- date (дата создания)
    
    7af98bb4                                                                  -- TL ID adnl.message.query
    d7be82afbc80516ebca39784b8e2209886a69601251571444514b7f17fcd8875          -- query_id
    04 ed4879a9 000000                                                        -- query (bytes размер 4, паддинг 3)
                                                                        -- address (присутствует т.к 4й бит = 1), без TL ID т.к указан явно
-00000000                                                                  -- addrs (пустой vector)
-555c8763                                                                  -- version
+00000000                                                                  -- addrs (пустой vector, т.к мы в режиме клиента)
+555c8763                                                                  -- version (обычно дата инициализации)
 555c8763                                                                  -- reinit_date
 00000000                                                                  -- priority
 00000000                                                                  -- expire_at
@@ -131,8 +132,9 @@ c6b41348                                                                  -- TL 
 000000000000000000000000555c8763555c87630000000040b453fbcbd8e884586b464290fe07475ee0da9df0b8d191e41e44f8f42a63a710b45eefe8ffdc56de73db50a25989816dda17a4ac6c2f72f49804a97ff41df5020000000f2b6a8c0509f85da9f3c7e11c86ba22
 
 ```
-adnl.addressList addrs:(vector adnl.Address) version:int reinit_date:int priority:int expire_at:int = adnl.AddressList
 
+
+TODO
 
 
 
