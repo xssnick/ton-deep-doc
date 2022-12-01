@@ -107,7 +107,7 @@ adnl.packetContents
 ```
 89cd42d1                                                               -- TL ID adnl.packetContents
 0f 4e0e7dd6d0c5646c204573bc47e567                                      -- rand1, 15 (0f) случайных байт
-d90d0000                                                               -- flags (0xdd9) -> 0b110111011001
+d9050000                                                               -- flags (0x05d9) -> 0b0000010111011001
                                                                        -- from (присутствует т.к 0й бит флага = 1)
 c6b41348                                                                  -- TL ID pub.ed25519
    afc46336dd352049b366c7fd3fc1b143a518f0d02d9faef896cb0155488915d6       -- key:int256
@@ -132,15 +132,15 @@ c6b41348                                                                  -- TL 
 555c8763                                                               -- recv_addr_list_version (присутствует т.к 8й бит = 1, обычно дата инициализации)
 555c8763                                                               -- reinit_date (присутствует т.к 10й бит флага = 1, обычно дата инициализации)
 00000000                                                               -- dst_reinit_date (присутствует т.к 10й бит флага = 1)
-40 b453fbcbd8e884586b464290fe07475ee0da9df0b8d191e41e44f8f42a63a710    -- signature (присутствует т.к 11й бит флага = 1), (bytes размер 64, падинг 3)
-   b45eefe8ffdc56de73db50a25989816dda17a4ac6c2f72f49804a97ff41df502    --
-   000000                                                              --
 0f 2b6a8c0509f85da9f3c7e11c86ba22                                      -- rand2, 15 (0f) случайных байт
-
 ```
 
 
 TODO
+
+40 b453fbcbd8e884586b464290fe07475ee0da9df0b8d191e41e44f8f42a63a710    -- signature (присутствует т.к 11й бит флага = 1), (bytes размер 64, падинг 3)
+   b45eefe8ffdc56de73db50a25989816dda17a4ac6c2f72f49804a97ff41df502    --
+   000000      
 
 
 
