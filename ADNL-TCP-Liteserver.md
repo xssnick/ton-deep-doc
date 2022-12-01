@@ -459,7 +459,19 @@ currencies$_ grams:Grams other:ExtraCurrencyCollection = CurrencyCollection;
 ## Дополнительные технические детали хендшейка
 
 #### Получение айди ключа
-Айди ключа - это SHA256 хэш от 4 магических байт **[0xC6, 0xB4, 0x13, 0x48]** и **публичного ключа**
+Айди ключа - это SHA256 хэш сериализованой TL схемы.
+
+Чаще всего применяются следующие TL схемы:
+```
+pub.ed25519 key:int256 = PublicKey -- ID c6b41348
+pub.aes key:int256 = PublicKey     -- ID d4adbc2d
+pub.overlay name:bytes = PublicKey -- ID cb45ba34
+pub.unenc data:bytes = PublicKey   -- ID 0a451fb6
+pk.aes key:int256 = PrivateKey     -- ID 3751e8a5
+```
+
+Как пример, для ключей типа ED25519, которые используются для хендшейка, ID ключа будет являться sha256 хешом от 
+**[0xC6, 0xB4, 0x13, 0x48]** и **публичного ключа**, (массива байт размером 36, префикс + ключ)
 
 [Пример кода](https://github.com/xssnick/tonutils-go/blob/2b5e5a0e6ceaf3f28309b0833cb45de81c580acc/liteclient/crypto.go#L16)
 
