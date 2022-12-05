@@ -55,12 +55,33 @@ dht.nodes nodes:(vector dht.node) = dht.Nodes;
 
 dht.valueNotFound nodes:dht.nodes = dht.ValueResult;
 ```
+`dht.nodes -> nodes` -  список DHT нод (массив).
 
-TODO
+У каждой ноды есть `id` который является ее публичным ключем, обычно [pub.ed25519](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L47), используется как ключ сервера для подключения к ноде по ADNL. Так же каждая нода имеет список адресов `addr_list:adnl.addressList`, версию и подпись.
+
+Нам нужно обязательно проверять подпись каждой ноды, для этого читаем значение `signature` и обнуляем поле (делаем пустым массивом bytes). После - сериализуем TL структуру `dht.node` с обнуленной подписью, и проверяем `signature` которая была до обнуления на полученных сериализованых байтах, используя ключ из `id`. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/udp-rldp-2/adnl/dht/client.go#L91)
+
+Из списка `addrs:(vector adnl.Address)` берем адрес и пробуем установить ADNL UDP соединение, в качестве ключа сервера используем `id` который является публичным ключем.
+
+Чтобы узнать "расстояние" до этой ноды - нам нужно взять [айди ключа](/ADNL-TCP-Liteserver.md#получение-айди-ключа) от ключа из поля `id`, и проверить расстояние операцией XOR от айди ключа ноды и искомого ключа. Если расстояние достаточно небольшое - мы можем делать тот же запрос на эту ноду. И так далее, пока не найдем значение или не будет больше новых нод.
 
 ###### dht.valueFound
-Ответ будет содержать само значение, подписи, и полную информацию по ключу.
-Мы разберем оба случая.
+Ответ будет содержать само значение, подписи, и полную информацию по ключу. 
+
+Разберем поля ответа подробнее, исползуемые схемы:
+```
+dht.key id:int256 name:bytes idx:int = dht.Key;
+
+dht.updateRule.signature = dht.UpdateRule;
+dht.updateRule.anybody = dht.UpdateRule;
+dht.updateRule.overlayNodes = dht.UpdateRule;
+
+dht.keyDescription key:dht.key id:PublicKey update_rule:dht.UpdateRule signature:bytes = dht.KeyDescription;
+
+dht.value key:dht.keyDescription value:bytes ttl:int signature:bytes = dht.Value; 
+
+dht.valueFound value:dht.Value = dht.ValueResult;
+```
 
 TODO
 
