@@ -102,16 +102,19 @@ dht.valueFound value:dht.Value = dht.ValueResult;
 [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/udp-rldp-2/adnl/dht/client.go#L331)
 
 ###### dht.updateRule.overlayNodes
+Используется для ключей содержащих информацию о других нодах-шардах воркчеина в сети, в значении всегда имеет TL структуру `overlay.nodes`. Подпись значения должна быть пустой.
+
 ```
-overlay.node.toSign id:adnl.id.short overlay:int256 version:int = overlay.node.ToSign;
 overlay.node id:PublicKey overlay:int256 version:int signature:bytes = overlay.Node;
 overlay.nodes nodes:(vector overlay.node) = overlay.Nodes;
 ```
+Для проверки валидности мы должны проверить все `nodes` и для каждой проверить `signature` на соответствие ее `id`, сериализовав TL структуру:
+```
+overlay.node.toSign id:adnl.id.short overlay:int256 version:int = overlay.node.ToSign;
+```
+Как мы видим id надо заменить на adnl.id.short, который является айди ключа `id` из оригинальной структуры. После сериализации - сверяем подпись с данными.
 
-Используется для поиска других нод воркчеина в сети, в значении всегда имеет TL структуру `overlay.nodes`. Подпись значения должна быть пустой. Валидность записи проверяется 
-
-TODO
-
+В результате мы получаем валидный список нод которые списобны отдать нам информацию о нужной нам шарде воркчеина.
 ###### dht.updateRule.anybody
 Подписей нет, обновлять может любой, но реального использования я не видел.
 
