@@ -147,6 +147,8 @@ tonNode.shardPublicOverlayId workchain:int shard:long zero_state_file_hash:int25
 
 Полученный айди ключа нам нужно использовать, как `name` для заполнения структуры `pub.overlay name:bytes = PublicKey`, завернув его в `bytes`. Далее сериализуем его, и получаем айди ключа теперь уже из него. 
 
-Полученный айди будет ключом для использования в `dht.findValue`. Повторяем основной процесс из предыдущего раздела, все идентично, как и в прошлый раз, но `updateRule` в этот раз будет [dht.updateRule.overlayNodes](#dhtupdateruleoverlaynodes).
+Полученный айди будет ключом для использования в `dht.findValue`, а в качестве `name` будет слово `nodes`. Повторяем основной процесс из предыдущего раздела, все как и в прошлый раз, но `updateRule` будет [dht.updateRule.overlayNodes](#dhtupdateruleoverlaynodes).
 
-TODO
+После валидации - мы получим публичные ключи (`id`) нод имеющих информацию о нашем воркчеине и шарде. Чтобы получить ADNL адреса нод - нам нужно сделать из ключей айди (методом хеширования) и для каждого из ADNL адресов повторить процедуру описаную выше, как и с ADNL адресом домена `foundation.ton`.
+
+В результате мы получим адреса нод, у которых, если захотим, сможем узнать адреса других нод этого чеина c помощью [overlay.getRandomPeers](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L237). Также мы сможем получать от этих нод всю информацию о блоках. 
