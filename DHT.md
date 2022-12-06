@@ -147,4 +147,6 @@ tonNode.shardPublicOverlayId workchain:int shard:long zero_state_file_hash:int25
 
 Полученный айди ключа нам нужно использовать, как `name` для заполнения структуры `pub.overlay name:bytes = PublicKey`, завернув его в `bytes`. Далее сериализуем его, и получаем айди ключа теперь уже из него. 
 
-Полученный айди будет ключом для использования в `dht.findValue`. Повторяем основной процесс из предыдущего раздела, все идентично, как и в прошлый раз, но `updateRule` в этот раз будет [dht.updateRule.overlayNodes](#dhtupdateruleoverlaynodes). К полученному списку нод мы можем подключаться и получать от них данные о блоках и всех событиях шарды.
+Полученный айди будет ключом для использования в `dht.findValue`. Повторяем основной процесс из предыдущего раздела, все идентично, как и в прошлый раз, но `updateRule` в этот раз будет [dht.updateRule.overlayNodes](#dhtupdateruleoverlaynodes).
+
+TODO
