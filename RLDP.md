@@ -148,8 +148,15 @@ rldp.messagePart transfer_id:int256 fec_type:fec.Type part:int total_size:long s
 ```
 http.response http_version:string status_code:int reason:string headers:(vector http.header) no_payload:Bool = http.Response;
 ```
-В нем все должно быть понятно, суть как и в HTTP. 
+С основными полями думаю все понятно, суть как и в HTTP. Интересный флаг тут `no_payload`, если там true - значит в ответе нет тела, (`Content-Length` = 0). Ответ от сервер можно считать полученным.
 
+Если `no_payload` = false, значит в ответе есть контент и нам нужно его получить. Для этого нам нужно отправить запрос c TL схемой `http.getNextPayloadPart`.
+```
+http.payloadPart data:bytes trailer:(vector http.header) last:Bool = http.PayloadPart;
+
+http.getNextPayloadPart id:int256 seqno:int max_chunk_size:int = http.PayloadPart;
+```
+`id` - должен быть тот же что мы отправляли в `http.request`, `seqno` - 0, и +1 для каждой следующей части пока мы не получим `last = true` в ответе (`http.payloadPart`). `max_chunk_size` - максимальный размер части, обычно используется 128 КБ (131072 байт).
 
 TODO
 
