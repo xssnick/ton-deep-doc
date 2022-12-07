@@ -142,7 +142,7 @@ rldp.messagePart transfer_id:int256 fec_type:fec.Type part:int total_size:long s
 
 Сначала нам нужно получить информацию о FEC, из первого полученного сообщения транфсера, а конкретно параметры `data_size`, `symbol_size` и `symbols_count` из `fec.raptorQ` структуры messagePart. Они нам нужны для инициализации RaptorQ декодера. [[Пример]](https://github.com/xssnick/tonutils-go/blob/be3411cf412f23e6889bf0b648904306a15936e7/adnl/rldp/rldp.go#L137)
 
-После инициализации - мы добавляем полученные символы с их `seqno` в наш декодер, и как только накопили минимально необходимое количество равное `symbols_count`, можем пробовать декодировать полное сообщение. [[Пример]](https://github.com/xssnick/tonutils-go/blob/be3411cf412f23e6889bf0b648904306a15936e7/adnl/rldp/rldp.go#L168)
+После инициализации - мы добавляем полученные символы с их `seqno` в наш декодер, и как только накопили минимально необходимое количество равное `symbols_count`, можем пробовать декодировать полное сообщение, при успехе, мы отправим `rldp.complete`. [[Пример]](https://github.com/xssnick/tonutils-go/blob/be3411cf412f23e6889bf0b648904306a15936e7/adnl/rldp/rldp.go#L168)
 
 В результате мы получим сообщение `rldp.answer`, с тем же query_id что и в отправленном нами `rldp.query`. В данных должен быть `http.response`.
 ```
@@ -150,18 +150,16 @@ http.response http_version:string status_code:int reason:string headers:(vector 
 ```
 С основными полями думаю все понятно, суть как и в HTTP. Интересный флаг тут `no_payload`, если там true - значит в ответе нет тела, (`Content-Length` = 0). Ответ от сервер можно считать полученным.
 
-Если `no_payload` = false, значит в ответе есть контент и нам нужно его получить. Для этого нам нужно отправить запрос c TL схемой `http.getNextPayloadPart`.
+Если `no_payload` = false, значит в ответе есть контент и нам нужно его получить. Для этого нам нужно отправить запрос c TL схемой `http.getNextPayloadPart`, обернутой в `rldp.query`.
 ```
-http.payloadPart data:bytes trailer:(vector http.header) last:Bool = http.PayloadPart;
-
 http.getNextPayloadPart id:int256 seqno:int max_chunk_size:int = http.PayloadPart;
 ```
-`id` - должен быть тот же что мы отправляли в `http.request`, `seqno` - 0, и +1 для каждой следующей части пока мы не получим `last = true` в ответе (`http.payloadPart`). `max_chunk_size` - максимальный размер части, обычно используется 128 КБ (131072 байт).
+`id` - должен быть тот же что мы отправляли в `http.request`, `seqno` - 0, и +1 для каждой следующей части. `max_chunk_size` - максимальный размер части, обычно используется 128 КБ (131072 байт).
 
-TODO
-
-694d798a9ad12b08f9d15a99e5b89dee6d38e0b495876eaabbfb067f9ac28cbbc75cd1bc0004040000000000258f90632c0c5d7490116505dac8a9a3cdb464f9b5dd9af78594f23f1c295099a9b50c8245de4711940000000000000200000000
-
-
+В ответ мы получим:
+```
+http.payloadPart data:bytes trailer:(vector http.header) last:Bool = http.PayloadPart;
+```
+Если `last` = true, значит мы достигли конца, мы можем соеденить все части воедино и получить полный боди ответа, например html.
 
 
