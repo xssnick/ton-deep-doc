@@ -59,7 +59,7 @@ http.getNextPayloadPart id:int256 seqno:int max_chunk_size:int = http.PayloadPar
 * Сервер при получении запроса проверяет заголовок `Content-Length`
 * * Если в нем не 0, отправляет клиенту запрос `http.getNextPayloadPart`
 * * Клиент при получении запроса отправляет `http.payloadPart` - запрошеный кусок боди в зависимости от `seqno` и `max_chunk_size`.
-* * Сервер повторяет запросы пока не получит все куски от клиента, т.е пока `last:Bool` кусочка не будет true.
+* * Сервер повторяет запросы увеличивая `seqno` пока не получит все куски от клиента, т.е пока `last:Bool` кусочка не будет true.
 * После обработки запроса сервер отправляет `http.response`, клиент проверяет заголовок `Content-Length`
 * * Если в нем не 0, то отправлят серверу запрос `http.getNextPayloadPart` и повторяются операции как в случае с клиентом.
 
@@ -67,6 +67,11 @@ http.getNextPayloadPart id:int256 seqno:int max_chunk_size:int = http.PayloadPar
 
 Чтобы понять как устроен RLDP - разберем пример с получением данных с TON сайта `foundation.ton`. Допустим мы уже узнали его ADNL адрес вызвав Get метод  NFT-DNS контракта, [определили адрес и порт RLDP сервиса используя DHT](https://github.com/xssnick/ton-deep-doc/blob/master/DHT.md), и [подключились к нему по ADNL UDP](https://github.com/xssnick/ton-deep-doc/blob/master/ADNL-UDP-Internal.md).
 
+###### Отправим GET запрос к `foundation.ton`.
+Для этого заполним структуру:
+```
+http.request id:int256 method:string url:string http_version:string headers:(vector http.header) = http.Response;
+```
 
 TODO
 
