@@ -71,7 +71,7 @@ http.getNextPayloadPart id:int256 seqno:int max_chunk_size:int = http.PayloadPar
 
 Чтобы понять как устроен RLDP - разберем пример с получением данных с TON сайта `foundation.ton`. Допустим мы уже узнали его ADNL адрес вызвав Get метод  NFT-DNS контракта, [определили адрес и порт RLDP сервиса используя DHT](https://github.com/xssnick/ton-deep-doc/blob/master/DHT.md), и [подключились к нему по ADNL UDP](https://github.com/xssnick/ton-deep-doc/blob/master/ADNL-UDP-Internal.md).
 
-###### Отправим GET запрос к `foundation.ton`
+##### Отправим GET запрос к `foundation.ton`
 Для этого заполним структуру:
 ```
 http.request id:int256 method:string url:string http_version:string headers:(vector http.header) = http.Response;
@@ -101,7 +101,9 @@ e191b161                                                           -- TL ID http
    696f6e2e746f6e00 000000
 ```
 
-Теперь наша задача применить к этим данным наш FEC алгоритм, а конкретно - RaptorQ.
+##### Кодируем и отправляем пакеты
+
+Теперь наша задача применить к этим данным FEC алгоритм, а конкретно - RaptorQ.
 
 Создадим энкодер, для этого нам нужно превратить полученный массив байт в символы фиксированного размера, в тоне размер символов равен 768 байт. 
 Чтобы это сделать, разобьем массив на кусочки по 768 байт. В последнем кусочке, если он выйдет по размеру меньше 768, дополнить его нулевыми байтами до необходимого размера. 
@@ -118,15 +120,36 @@ fec.raptorQ data_size:int symbol_size:int symbols_count:int = fec.Type;
 
 rldp.messagePart transfer_id:int256 fec_type:fec.Type part:int total_size:long seqno:int data:bytes = rldp.MessagePart;
 ```
-В качестве `transfer_id` мы сгенерируем случайный int256, `fec_type` будет `fec.raptorQ`. В нем `data_size = 156`, `symbol_size = 768`, `symbols_count = 1`. `total_size = 156`, `seqno` - для первого пакета будет равен 0, и для каждого последующего - будет увеличиваться на 1, с помощью него производится кодирование. В `data` будет наш закодированый символ, размером 768 байт.
+* `transfer_id` - случайный int256, одинаковый для всех messagePart в рамках одной передачи данных.
+*  `fec_type` будет `fec.raptorQ`.
+*  * `data_size` = 156
+*  * `symbol_size` = 768
+*  * `symbols_count` = 1
+*  `part` в нашем случае всегда 0, может использоваться для очень трансферов которые упераются в лимит.
+*  `total_size` = 156. Размер данных нашего трансфера. 
+*  `seqno` - для первого пакета будет равен 0, и для каждого последующего - будет увеличиваться на 1, с помощью него производится кодирование. 
+*  `data` - наш закодированый символ, размером 768 байт.
 
 После сериалмзации `rldp.messagePart`, заворачиваем его в `adnl.message.custom` и отправляем по ADNL UDP.
 
 Мы отправляем пакеты по кругу, все время увеличивая seqno, пока не дождемся от получателя сообщения `rldp.complete`, либо останавливаемся по таймауту. После того как мы отправили количество пакетов равное количеству наших символов, мы можем сбавить темп, и слать по дополнительному пакету например раз в 10 миллисекунд, или реже. Дополнительные пакеты служат для восстановления, на случай потери данных, так как UDP быстрый, но ненадежный протокол.
 
-После отправки (или во время), мы уже можем ожидать ответ от сервера, в нашем случае мы ждем `rldp.answer` с `http.response` внутри
+[[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/be3411cf412f23e6889bf0b648904306a15936e7/adnl/rldp/rldp.go#L249)
 
-###### Обрабатываем ответ от `foundation.ton`
+##### Обрабатываем ответ от `foundation.ton`
+
+После отправки (или во время), мы уже можем ожидать ответ от сервера, в нашем случае мы ждем `rldp.answer` с `http.response` внутри. Он придет нам так же - в виде RLDP трансфера, как мы и отправляли запрос. Мы получим `adnl.message.custom` сообщения, содержащие `rldp.messagePart`. 
+
+Сначала нам нужно получить информацию о FEC, из первого полученного сообщения транфсера, а конкретно параметры `data_size`, `symbol_size` и `symbols_count` из `fec.raptorQ` структуры messagePart. Они нам нужны для инициализации RaptorQ декодера. [[Пример]](https://github.com/xssnick/tonutils-go/blob/be3411cf412f23e6889bf0b648904306a15936e7/adnl/rldp/rldp.go#L137)
+
+После инициализации - мы добавляем полученные символы с их `seqno` в наш декодер, и как только накопили минимально необходимое количество равное `symbols_count`, можем пробовать декодировать полное сообщение. [[Пример]](https://github.com/xssnick/tonutils-go/blob/be3411cf412f23e6889bf0b648904306a15936e7/adnl/rldp/rldp.go#L168)
+
+В результате мы получим сообщение `rldp.answer`, с тем же query_id что и в отправленном нами `rldp.query`. В данных должен быть `http.response`.
+```
+http.response http_version:string status_code:int reason:string headers:(vector http.header) no_payload:Bool = http.Response;
+```
+В нем все должно быть понятно, суть как и в HTTP. 
+
 
 TODO
 
