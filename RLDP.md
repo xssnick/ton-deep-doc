@@ -73,6 +73,28 @@ http.getNextPayloadPart id:int256 seqno:int max_chunk_size:int = http.PayloadPar
 http.request id:int256 method:string url:string http_version:string headers:(vector http.header) = http.Response;
 ```
 
+```
+e191b161                                                           -- TL ID http.request      
+116505dac8a9a3cdb464f9b5dd9af78594f23f1c295099a9b50c8245de471194   -- id
+03 474554                                                          -- method       = GET
+16 687474703a2f2f666f756e646174696f6e2e746f6e2f 00                 -- url          = http://foundation.ton/
+08 485454502f312e31 000000                                         -- http_version = HTTP/1.1
+01000000                                                           -- headers (1)
+   04 486f7374 000000                                              -- name         = Host
+   0e 666f756e646174696f6e2e746f6e 00                              -- value        = foundation.ton
+```
+
+```
+694d798a
+184c01cb1a1e4dc9322e5cabe8aa2d2a0a4dd82011edaf59eb66f3d4d15b1c5c
+0004040000000000 
+258f9063 
+c8 e191b161116505dac8a9a3cdb464f9b5dd9af78594f23f1c295099a9b50c8245
+   de4711940347455416687474703a2f2f666f756e646174696f6e2e746f6e2f00
+   08485454502f312e310000000100000004486f73740000000e666f756e646174
+   696f6e2e746f6e00
+```
+
 TODO
 
 
