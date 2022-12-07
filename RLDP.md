@@ -73,9 +73,10 @@ http.getNextPayloadPart id:int256 seqno:int max_chunk_size:int = http.PayloadPar
 http.request id:int256 method:string url:string http_version:string headers:(vector http.header) = http.Response;
 ```
 
+Сериализуем `http.request` заполнив поля:
 ```
 e191b161                                                           -- TL ID http.request      
-116505dac8a9a3cdb464f9b5dd9af78594f23f1c295099a9b50c8245de471194   -- id
+116505dac8a9a3cdb464f9b5dd9af78594f23f1c295099a9b50c8245de471194   -- id           = {random}
 03 474554                                                          -- method       = GET
 16 687474703a2f2f666f756e646174696f6e2e746f6e2f 00                 -- url          = http://foundation.ton/
 08 485454502f312e31 000000                                         -- http_version = HTTP/1.1
@@ -84,16 +85,22 @@ e191b161                                                           -- TL ID http
    0e 666f756e646174696f6e2e746f6e 00                              -- value        = foundation.ton
 ```
 
+Теперь упакуем наш сериализованный `http.request` в `rldp.query` и тоже сериализуем:
 ```
-694d798a
-184c01cb1a1e4dc9322e5cabe8aa2d2a0a4dd82011edaf59eb66f3d4d15b1c5c
-0004040000000000 
-258f9063 
-c8 e191b161116505dac8a9a3cdb464f9b5dd9af78594f23f1c295099a9b50c8245
+694d798a                                                              -- TL ID rldp.query
+184c01cb1a1e4dc9322e5cabe8aa2d2a0a4dd82011edaf59eb66f3d4d15b1c5c      -- query_id        = {random}
+0004040000000000                                                      -- max_answer_size = 257 KB, может быть любой достаточный
+258f9063                                                              -- timeout (unix)  = 1670418213
+34 e191b161116505dac8a9a3cdb464f9b5dd9af78594f23f1c295099a9b50c8245   -- data (http.request)
    de4711940347455416687474703a2f2f666f756e646174696f6e2e746f6e2f00
    08485454502f312e310000000100000004486f73740000000e666f756e646174
-   696f6e2e746f6e00
+   696f6e2e746f6e00 000000
 ```
+
+Теперь, нам нужно превратить полученный массив байт в символы фиксированного размера, в тоне размер символов равен 768 байт. 
+Чтобы это сделать, нам нужно разбить массив на кусочки по 768 байт, и в последнем кусочке, если он выйдет по размеру меньше 768, дополнить его нулевыми байтами до необходимого размера. 
+
+Наш массив размером 156 байт, значит будет всего 1 кусок, и нам нужно его дополнить 612ю нулевыми байтами до размера 768.
 
 TODO
 
