@@ -1,6 +1,49 @@
 # TL-B
 В данном разделе отдельно разобраны сложные и неочевидные TL-B структуры. Для начала рекомендую ознакомиться с [базовой документацией](https://github.com/tonstack/ton-docs/tree/main/TL-B)
 
+### Unary
+Unary обычно используется для определения динамического размера в таких структурах, как [hml_short](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L29).
+
+Unary имеет 2 варианта:
+```
+unary_zero$0 = Unary ~0;
+unary_succ$1 {n:#} x:(Unary ~n) = Unary ~(n + 1);
+```
+
+С `unary_zero` все просто: если первый бит 0, значит искомое число - это 0. 
+
+`unary_succ`, устроен интереснее, он загружается рекурсивно и имеет значение `~(n + 1)`. Это значит, что он вызывает сам себя до тех пор, пока мы не наткнемся на `unary_zero`. Иными словами, искомое значение будет равно количеству единиц, идущих подряд. 
+
+Разберем парсинг `1110`.
+
+Цепочка вызовов будет следующая:
+```unary_succ$1 -> unary_succ$1 -> unary_succ$1 -> unary_zero$0```
+
+Как только мы дошли до `unary_zero`, значение возвращается наверх, как в рекурсивном вызове функции.
+Теперь, чтобы понять результат, пойдем по пути возвращаемого значения, то есть с конца:
+```0 -> ~(0 + 1) -> ~(1 + 1) -> ~(2 + 1) -> 3```
+
+### Either
+```
+left$0 {X:Type} {Y:Type} value:X = Either X Y;
+right$1 {X:Type} {Y:Type} value:Y = Either X Y;
+```
+Используется когда возможен один из двух типов, при этом выбор типа зависит от бита префикса, если 0 - сериализуется левый тип, если 1 - правый.
+Применяется, например, при сериализации сообщений, когда body может быть как частью основной ячейки, так и ссылкой.
+
+### Maybe
+```
+nothing$0 {X:Type} = Maybe X;
+just$1 {X:Type} value:X = Maybe X;
+```
+Используется для опциональных значений, если первый бит равен 0 - само значение не сериализуется (пропускается), если 1 - сериализуется.
+
+### Both
+```
+pair$_ {X:Type} {Y:Type} first:X second:Y = Both X Y;
+```
+Обычная пара, сериализуются оба типа, друг за другом, без условий.
+
 ### Hashmap
 
 В качестве примера работы со сложными TL-B струкутрами разберем `Hashmap`, который является структурой для хранения `dict` из FunC кода смарт-контрактов.
@@ -160,25 +203,69 @@ hmn_leaf#_ {X:Type} value:X = HashmapNode 0 X;
 
 В нашем случае берем 7 бит из HmLabel `0000000` и перед ними добавляем 1, засчет того, что мы добрались до значения по правой ветке. Получаем 8 бит `10000000`, наш ключ - это число `128`.
 
-### Unary
-Unary обычно используется для определения динамического размера в таких структурах, как `hml_short`.
+#### Другие виды Hashmap
+Существуют также другие виды словарей, у всех них одинаковая суть и разобравшись с загрузкой основного Hashmap вы сможете по тому же принципу загрузить другие виды.
 
-Unary имеет 2 варианта:
+##### HashmapAugE
 ```
-unary_zero$0 = Unary ~0;
-unary_succ$1 {n:#} x:(Unary ~n) = Unary ~(n + 1);
+ahm_edge#_ {n:#} {X:Type} {Y:Type} {l:#} {m:#} 
+  label:(HmLabel ~l n) {n = (~m) + l} 
+  node:(HashmapAugNode m X Y) = HashmapAug n X Y;
+  
+ahmn_leaf#_ {X:Type} {Y:Type} extra:Y value:X = HashmapAugNode 0 X Y;
+
+ahmn_fork#_ {n:#} {X:Type} {Y:Type} left:^(HashmapAug n X Y)
+  right:^(HashmapAug n X Y) extra:Y = HashmapAugNode (n + 1) X Y;
+
+ahme_empty$0 {n:#} {X:Type} {Y:Type} extra:Y 
+          = HashmapAugE n X Y;
+          
+ahme_root$1 {n:#} {X:Type} {Y:Type} root:^(HashmapAug n X Y) 
+  extra:Y = HashmapAugE n X Y;
 ```
+Отличие от обычного Hashmap - наличие `extra:Y` поля в каждой ноде (не только в листьях со значениями).
 
-С `unary_zero` все просто: если первый бит 0, значит искомое число - это 0. 
+##### PfxHashmap
+```
+phm_edge#_ {n:#} {X:Type} {l:#} {m:#} label:(HmLabel ~l n) 
+           {n = (~m) + l} node:(PfxHashmapNode m X) 
+           = PfxHashmap n X;
 
-`unary_succ`, устроен интереснее, он загружается рекурсивно и имеет значение `~(n + 1)`. Это значит, что он вызывает сам себя до тех пор, пока мы не наткнемся на `unary_zero`. Иными словами, искомое значение будет равно количеству единиц, идущих подряд. 
+phmn_leaf$0 {n:#} {X:Type} value:X = PfxHashmapNode n X;
+phmn_fork$1 {n:#} {X:Type} left:^(PfxHashmap n X) 
+            right:^(PfxHashmap n X) = PfxHashmapNode (n + 1) X;
 
-Разберем парсинг `1110`.
+phme_empty$0 {n:#} {X:Type} = PfxHashmapE n X;
+phme_root$1 {n:#} {X:Type} root:^(PfxHashmap n X) 
+            = PfxHashmapE n X;
+```
+Отличие от обычного Hashmap - возможность хранить ключи разной длины, за счет тега у нод `phmn_leaf$0`, `phmn_fork$1`.
 
-Цепочка вызовов будет следующая:
-```unary_succ$1 -> unary_succ$1 -> unary_succ$1 -> unary_zero$0```
+##### VarHashmap
+```
+vhm_edge#_ {n:#} {X:Type} {l:#} {m:#} label:(HmLabel ~l n) 
+           {n = (~m) + l} node:(VarHashmapNode m X) 
+           = VarHashmap n X;
+vhmn_leaf$00 {n:#} {X:Type} value:X = VarHashmapNode n X;
+vhmn_fork$01 {n:#} {X:Type} left:^(VarHashmap n X) 
+             right:^(VarHashmap n X) value:(Maybe X) 
+             = VarHashmapNode (n + 1) X;
+vhmn_cont$1 {n:#} {X:Type} branch:Bit child:^(VarHashmap n X) 
+            value:X = VarHashmapNode (n + 1) X;
 
-Как только мы дошли до `unary_zero`, значение возвращается наверх, как в рекурсивном вызове функции.
-Теперь, чтобы понять результат, пойдем по пути возвращаемого значения, то есть с конца:
-```0 -> ~(0 + 1) -> ~(1 + 1) -> ~(2 + 1) -> 3```
+// nothing$0 {X:Type} = Maybe X;
+// just$1 {X:Type} value:X = Maybe X;
 
+vhme_empty$0 {n:#} {X:Type} = VarHashmapE n X;
+vhme_root$1 {n:#} {X:Type} root:^(VarHashmap n X) 
+            = VarHashmapE n X;
+```
+Отличие от обычного Hashmap - возможность хранить ключи разной длины, за счет тега у нод `vhmn_leaf$00`, `vhmn_fork$01`. При этом способен формировать общий префикс значений (дочерний мап), за счет `vhmn_cont$1`.
+
+##### BinTree
+```
+bta_leaf$0 {X:Type} {Y:Type} extra:Y leaf:X = BinTreeAug X Y;
+bta_fork$1 {X:Type} {Y:Type} left:^(BinTreeAug X Y) 
+           right:^(BinTreeAug X Y) extra:Y = BinTreeAug X Y;
+```
+Простое дерево, принцип формирования ключа как у Hashmap, но без label'ов, только за счет префиксов веток.
