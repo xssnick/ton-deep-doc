@@ -470,39 +470,38 @@ pub.unenc data:bytes = PublicKey   -- ID 0a451fb6
 pk.aes key:int256 = PrivateKey     -- ID 3751e8a5
 ```
 
-Как пример, для ключей типа ED25519, которые используются для хендшейка, ID ключа будет являться sha256 хешом от 
-**[0xC6, 0xB4, 0x13, 0x48]** и **публичного ключа**, (массива байт размером 36, префикс + ключ)
+As an example, for keys like ED25519 that are used for handshake, the key ID will be the SHA256 hash from
+**[0xC6, 0xB4, 0x13, 0x48]** and **public key**, (36 byte array, prefix + key)
 
-[Пример кода](https://github.com/xssnick/tonutils-go/blob/2b5e5a0e6ceaf3f28309b0833cb45de81c580acc/liteclient/crypto.go#L16)
+[Code example](https://github.com/xssnick/tonutils-go/blob/2b5e5a0e6ceaf3f28309b0833cb45de81c580acc/liteclient/crypto.go#L16)
 
-#### Шифрование данных Handshake пакета
-Хэндшейк пакет отправляется в полуоткрытом виде, зашифрованы только 160 байт, содержащие информацию о постоянных шифрах.
+#### Handshake packet data encryption
+The handshake packet is sent in a semi-open form, only 160 bytes are encrypted, containing information about permanent ciphers.
 
-Чтобы их зашифровать, нам нужен AES-CTR шифр, для его получения нам нужен SHA256 хэш от 160 байт и [общий ключ ECDH](#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BE%D0%B1%D1%89%D0%B5%D0%B3%D0%BE-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0-%D0%BF%D0%BE-ecdh)
+To encrypt them, we need an AES-CTR cipher, to get it we need a SHA256 hash of 160 bytes and [ECDH shared key](#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BE%D0%B1%D1%89%D0%B5%D0%B3%D0%BE-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0-%D0%BF%D0%BE-ecdh)
 
-Шифр собирается следующим образом:
-* ключ = (0 - 15 байты общего ключа) + (16 - 31 байты хэша)
-* iv   = (0 - 3 байты хэша) + (20 - 31 байты общего ключа)
+The cipher is built like this:
+* key = (0 - 15 bytes of public key) + (16 - 31 bytes of hash)
+* iv = (0 - 3 hash bytes) + (20 - 31 public key bytes)
 
-После того, как шифр собран, мы шифруем им наши 160 байт.
+After the cipher is assembled, we encrypt our 160 bytes with it.
 
-[Пример кода](https://github.com/xssnick/tonutils-go/blob/2b5e5a0e6ceaf3f28309b0833cb45de81c580acc/liteclient/connection.go#L361)
+[Code example](https://github.com/xssnick/tonutils-go/blob/2b5e5a0e6ceaf3f28309b0833cb45de81c580acc/liteclient/connection.go#L361)
 
-#### Получение общего ключа по ECDH
-Для расчета общего ключа нам понадобится наш приватный ключ и публичный ключ сервера. 
+#### Getting a shared key via ECDH
+To calculate the shared key, we need our private key and the server's public key.
 
-Суть DH в получении общего секретного ключа, без разглашения приватной информации. Приведу пример, как это происходит, в максимально упрощенном виде.
-Предположим, что нужно сгенерировать общий ключ между нами и сервером, процесс будет выглядеть так:
-1. Мы генерируем секретное и публичное числа, например **6** и **7**
-2. Сервер генерирует секретное и публичное числа, например **5** и **15**
-3. Мы с сервером обмениваемся публичными числами, отправляем серверу **7**, он нам отправляет **15**.
-4. Мы высчитываем: **7^6 mod 15 = 4**
-5. Сервер высчитывает: **7^5 mod 15 = 7**
-6. Обмениваемся полученными числами, мы серверу **4**, он нам **7**
-7. Мы высчитываем **7^6 mod 15 = 4**
-8. Сервер высчитывает: **4^5 mod 15 = 4**
-9. Общий ключ = **4**
+The essence of DH is to obtain a shared secret key, without disclosing private information. I will give an example of how this happens, in the most simplified form. Suppose we need to generate a shared key between us and the server, the process will look like this:
+1. We generate secret and public numbers like **6** and **7**
+2. The server generates secret and public numbers like **5** and **15**
+3. We exchange public numbers with the server, send **7** to the server, it sends us **15**.
+4. We calculate: **7^6 mod 15 = 4**
+5. The server calculates: **7^5 mod 15 = 7**
+6. We exchange the received numbers, we give the server **4**, it gives us **7**
+7. We calculate **7^6 mod 15 = 4**
+8. The server calculates: **4^5 mod 15 = 4**
+9. Shared key = **4**
 
-Детали самого ECDH будут опущены, чтобы не усложнять прочтение. Он вычисляется с помощью 2 ключей, приватного и публичного, путем нахождения общей точки на кривой. Если интересно, то лучше почитать про это отдельно.
+The details of the ECDH itself will be omitted for the sake of simplicity. It is calculated using 2 keys, private and public, by finding a common point on the curve. If interested, it is better to read about it separately.
 
-[Пример кода](https://github.com/xssnick/tonutils-go/blob/2b5e5a0e6ceaf3f28309b0833cb45de81c580acc/liteclient/crypto.go#L32)
+[Code example](https://github.com/xssnick/tonutils-go/blob/2b5e5a0e6ceaf3f28309b0833cb45de81c580acc/liteclient/crypto.go#L32)
