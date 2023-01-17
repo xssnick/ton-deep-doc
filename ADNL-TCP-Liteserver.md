@@ -186,13 +186,13 @@ Fill out our request:
 * `params:bytes` = Our method does not accept input parameters, so we need to pass it an empty stack (`000000`, cell 3 bytes - stack depth 0) serialized in [BoC](/Cells-BoC.md#bag-of-cells) -> `b5ee9c72010101010005000006000000` -> serialize in bytes and get `10b5ee9c72410101010005000006000000000000` 0x10 - size, 3 bytes in the end - padding.
 
 In response we get:
-* `mode:#` -> не интересен
-* `id:tonNode.blockIdExt` -> не интересен
-* `shardblk:tonNode.blockIdExt` -> не интересен
-* `exit_code:int` -> равен 0, если все успешно
-* `result:mode.2?bytes` -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) содержащий возвращенные методом данные в формате BoC, его мы распакуем.
+* `mode:#` -> not interesting
+* `id:tonNode.blockIdExt` -> not interesting
+* `shardblk:tonNode.blockIdExt` -> not interesting
+* `exit_code:int` -> is 0 if all is well
+* `result:mode.2?bytes` -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) containing the data returned by the method in BoC format, we will unpack it.
 
-Внутри `result` мы получили `b5ee9c7201010501001b000208000002030102020203030400080ccffcc1000000080aabbcc8`, это [BoC](/Cells-BoC.md#bag-of-cells) содержащий стек с данными. Когда мы десериализуем его, мы получим ячейку:
+Inside `result` we got `b5ee9c7201010501001b000208000002030102020203030400080ccffcc1000000080aabbcc8`, this is [BoC](/Cells-BoC.md#bag-of-cells) containing the data stack. When we deserialize it, we will get a cell:
 ```
 32[00000203] -> {
   8[03] -> {
@@ -202,36 +202,36 @@ In response we get:
   32[0CCFFCC1]
 }
 ```
-Если мы ее распарсим, то получим 2 значения типа cell, которые возвращает наш FunC метод. 
-Первые 3 байта корневой ячейки `000002` - это глубина стека, то есть 2. Значит метод вернул нам 2 значения. 
+If we parse it, we will get 2 values of the cell type, which our FunC method returns. 
+The first 3 bytes of the root cell `000002` - is the depth of the stack, that is 2. This means that the method returned 2 values to us. 
 
-Продолжаем парсинг, следующие 8 бит (1 байт) - это тип значения на текущем уровне стека. Для некоторых типов он может занимать 2 байта. Возможные варианты можно посмотреть в [схеме](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L766). В нашем случае мы имеем `03`, что означает:
+We continue parsing, the next 8 bits (1 byte) is the value type at the current stack level. For some types, it may take 2 bytes. Possible options can be seen in [schema](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L766). In our case, we have `03`, which means:
 ```
 vm_stk_cell#03 cell:^Cell = VmStackValue;
 ```
-Значит тип нашего значения - cell, и, судя по схеме, он хранит само значение, как ссылку. Но, если мы посмотрим на схему хранения элементов стека, -
+So the type of our value is - cell, and, according to the schema, it stores the value itself as a reference. But, if we look at the stack element storage schema, -
 ```
 vm_stk_cons#_ {n:#} rest:^(VmStackList n) tos:VmStackValue = VmStackList (n + 1);
 ```
-То увидим, что первая ссылка `rest:^(VmStackList n)` - это ячейка следующего значения на стеке, а наше значение `tos:VmStackValue` идет вторым, значит для получения значения нам нужно читать вторую ссылку, то есть `32[0CCFFCC1]` - это наш первый cell, который вернул контракт.
+We will see that the first link `rest:^(VmStackList n)` - is the cell of the next value on the stack, and our value `tos:VmStackValue` comes second, so to get the value we need to read the second link, that is `32[0CCFFCC1]` - this is our first cell that the contract returned.
 
-Теперь мы можем залезть глубже и достать второй элемент стека, проходим по первой ссылке, теперь мы имеем:
+Now we can go deeper and get the second element of the stack, we go through the first link, now we have:
 ```
 8[03] -> {
     0[],
     32[0AABBCC8]
   }
 ```
-Повторяем тот же процесс. Первые 8 бит = `03` - то есть опять cell. Вторая ссылка - это значение `32[0AABBCC8]` и, так как глубина нашего стека равна 2, мы завершаем проход. Итого, мы имеем 2 значения, возвращенные контрактом, - `32[0CCFFCC1]` и `32[0AABBCC8]`. 
+We repeat the same process. The first 8 bits = `03` - that is, again cell. The second reference is the value `32[0AABBCC8]` and since our stack depth is 2, we complete the pass. n total, we have 2 values returned by the contract - `32[0CCFFCC1]` and `32[0AABBCC8]`. 
 
-Обратите внимание, что они идут в обратном порядке. Точно так же нужно передавать и аргументы при вызове функции - в обратном порядке от того, что мы видим в коде FunC. 
+Note that they are in reverse order. In the same way, you need to pass arguments when calling a function - in reverse order from what we see in the FunC code. 
 
-[Пример реализации](https://github.com/xssnick/tonutils-go/blob/master/ton/runmethod.go#L24)
+[Implementation example](https://github.com/xssnick/tonutils-go/blob/master/ton/runmethod.go#L24)
 
 ##### getAccountState
-Для получения данных о состоянии аккаунта, таких как баланс, код и хранимые данные мы, можем использовать [getAccountState](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L68). Для запроса нам понадобится [свежий мастер блок](#) и адрес аккаунта. В ответ мы получим TL структуру [AccountState](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L38).
+to get account state data such as balance, code and stored data, we can use [getAccountState](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L68). For the request, we need a [fresh master block](#) and account address. In response, we will receive the TL structure [AccountState](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L38).
 
-Разберем AccountState TL схему:
+Let's analyze the AccountState TL schema:
 ```
 liteServer.accountState id:tonNode.blockIdExt shardblk:tonNode.blockIdExt shard_proof:bytes proof:bytes state:bytes = liteServer.AccountState;
 ```
