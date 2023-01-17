@@ -1,6 +1,6 @@
 ## ADNL UDP
 
-ADNL over UDP is used by nodes and tone components to communicate with each other. It is a low-level protocol on top of which other, higher-level TON protocols such as DHT and RLDP operate. In this article, we will analyze how ADNL over UDP works for basic data exchange between nodes, tunneling and anonymizing traffic will be discussed in a separate article.
+ADNL over UDP is used by nodes and TON components to communicate with each other. It is a low-level protocol on top of which other, higher-level TON protocols such as DHT and RLDP operate. In this article, we will analyze how ADNL over UDP works for basic data exchange between nodes, tunneling and anonymizing traffic will be discussed in a separate article.
 
 Unlike ADNL over TCP, in the UDP implementation, the handshake takes place in a different form, and an additional layer is used in the form of channels, but other principles are similar: keys are also generated based on our private key and the server's public key, which is known in advance from the config or received from other network nodes.
 
