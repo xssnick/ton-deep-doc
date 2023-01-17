@@ -134,39 +134,39 @@ c6b41348                                                                  -- TL 
 00000000                                                               -- dst_reinit_date (present because flag's tenth bit = 1)
 0f 2b6a8c0509f85da9f3c7e11c86ba22                                      -- rand2, 15 (0f) random bytes
 ```
-После сериализации - нам нужно подписать полученный массив байтов нашим приватным ED25519 ключом клиента (не канала), который мы сгенерировали и запомнили до этого. После того, как мы получили подпись (размером 64 байта), нам нужно добавить ее в пакет, сериализуем его еще раз, но добавляем в флаг 11й бит, значащий наличие подписи:
+After serialization - we need to sign the resulting byte array with our private ED25519 client (not channel) key, which we generated and remembered before. After we have received the signature (64 bytes in size), we need to add it to the packet, serialize it again, but add the 11th bit to the flag, which means the presence of the signature:
 ```
 89cd42d1                                                               -- TL ID adnl.packetContents
-0f 4e0e7dd6d0c5646c204573bc47e567                                      -- rand1, 15 (0f) случайных байт
+0f 4e0e7dd6d0c5646c204573bc47e567                                      -- rand1, 15 (0f) random bytes
 d90d0000                                                               -- flags (0x0dd9) -> 0b0000110111011001
-                                                                       -- from (присутствует т.к 0й бит флага = 1)
+                                                                       -- from (present because flag's zero bit = 1)
 c6b41348                                                                  -- TL ID pub.ed25519
    afc46336dd352049b366c7fd3fc1b143a518f0d02d9faef896cb0155488915d6       -- key:int256
-                                                                       -- messages (присутствует т.к 3й бит флага = 1)
-02000000                                                                  -- vector adnl.Message, размер 2 сообщения   
+                                                                       -- messages (present because flag's third bit = 1)
+02000000                                                                  -- vector adnl.Message, size = 2 message   
    bbc373e6                                                                  -- TL ID adnl.message.createChannel
    d59d8e3991be20b54dde8b78b3af18b379a62fa30e64af361c75452f6af019d7          -- key
-   555c8763                                                                  -- date (дата создания)
+   555c8763                                                                  -- date (date of creation)
    
    7af98bb4                                                                  -- TL ID adnl.message.query
    d7be82afbc80516ebca39784b8e2209886a69601251571444514b7f17fcd8875          -- query_id
-   04 ed4879a9 000000                                                        -- query (bytes размер 4, паддинг 3)
-                                                                       -- address (присутствует т.к 4й бит флага = 1), без TL ID т.к указан явно
-00000000                                                                  -- addrs (пустой vector, т.к мы в режиме клиента и не имеем адреса на прослушке)
-555c8763                                                                  -- version (обычно дата инициализации)
-555c8763                                                                  -- reinit_date (обычно дата инициализации)
+   04 ed4879a9 000000                                                        -- query (bytes size 4, padding 3)
+                                                                       -- address (present because flag's fourth bit = 1), without TL ID since it is specified explicitly
+00000000                                                                  -- addrs (empty vector, because we are in client mode and do not have an address on wiretap)
+555c8763                                                                  -- version (usually initialization date)
+555c8763                                                                  -- reinit_date (usually initialization date)
 00000000                                                                  -- priority
 00000000                                                                  -- expire_at
 
-0100000000000000                                                       -- seqno (присутствует т.к 6й бит флага = 1)
-0000000000000000                                                       -- confirm_seqno (присутствует т.к 7й бит флага = 1)
-555c8763                                                               -- recv_addr_list_version (присутствует т.к 8й бит = 1, обычно дата инициализации)
-555c8763                                                               -- reinit_date (присутствует т.к 10й бит флага = 1, обычно дата инициализации)
-00000000                                                               -- dst_reinit_date (присутствует т.к 10й бит флага = 1)
-40 b453fbcbd8e884586b464290fe07475ee0da9df0b8d191e41e44f8f42a63a710    -- signature (присутствует т.к 11й бит флага = 1), (bytes размер 64, падинг 3)
+0100000000000000                                                       -- seqno (present because flag's sixth bit = 1)
+0000000000000000                                                       -- confirm_seqno (present because flag's seventh bit = 1)
+555c8763                                                               -- recv_addr_list_version (present because flag's eighth bit = 1, usually initialization date)
+555c8763                                                               -- reinit_date (present because flag's tenth bit = 1, usually initialization date)
+00000000                                                               -- dst_reinit_date (present because flag's tenth bit = 1)
+40 b453fbcbd8e884586b464290fe07475ee0da9df0b8d191e41e44f8f42a63a710    -- signature (present because flag's eleventh bit = 1), (bytes size 64, padding 3)
    341eefe8ffdc56de73db50a25989816dda17a4ac6c2f72f49804a97ff41df502    --
    000000                                                              --
-0f 2b6a8c0509f85da9f3c7e11c86ba22                                      -- rand2, 15 (0f) случайных байт
+0f 2b6a8c0509f85da9f3c7e11c86ba22                                      -- rand2, 15 (0f) random bytes
 ```
 Теперь у нас есть собранный, подписанный и сериализованный пакет, представляющий из себя массив байтов. Для последующей проверки его целостности получателем, нам нужно посчитать его sha256 хеш. Пусть для примера это будет `408a2a4ed623b25a2e2ba8bbe92d01a3b5dbd22c97525092ac3203ce4044dcd2`.
 
