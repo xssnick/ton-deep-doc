@@ -168,63 +168,63 @@ c6b41348                                                                  -- TL 
    000000                                                              --
 0f 2b6a8c0509f85da9f3c7e11c86ba22                                      -- rand2, 15 (0f) random bytes
 ```
-Теперь у нас есть собранный, подписанный и сериализованный пакет, представляющий из себя массив байтов. Для последующей проверки его целостности получателем, нам нужно посчитать его sha256 хеш. Пусть для примера это будет `408a2a4ed623b25a2e2ba8bbe92d01a3b5dbd22c97525092ac3203ce4044dcd2`.
+Now we have an assembled, signed and serialized packet, which is an array of bytes. For subsequent verification of its integrity by the recipient, we need to calculate its sha256 hash. For example, let this be `408a2a4ed623b25a2e2ba8bbe92d01a3b5dbd22c97525092ac3203ce4044dcd2`.
 
-Теперь зашифруем контент нашего пакета шифром AES-CTR, с помощью [общего ключа](/ADNL-TCP-Liteserver.md#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BE%D0%B1%D1%89%D0%B5%D0%B3%D0%BE-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0-%D0%BF%D0%BE-ecdh), полученного из нашего приватного ключа и публичного ключа сервера (не ключем канала).
+Now let's encrypt the content of our package with the AES-CTR cipher, using [shared key](/ADNL-TCP-Liteserver.md#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BE%D0%B1%D1%89%D0%B5%D0%B3%D0%BE-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0-%D0%BF%D0%BE-ecdh), obtained from our private key and the public key of the server (not the channel key).
 
-Мы почти готовы к отправке, осталось [посчитать ID](/ADNL-TCP-Liteserver.md#получение-айди-ключа) ED25519 ключа сервера и соединить все вместе:
+We are almost ready for sending, it remains to [calculate ID](/ADNL-TCP-Liteserver.md#получение-айди-ключа) of ED25519 server key and connect everything together:
 ```
-daa76538d99c79ea097a67086ec05acca12d1fefdbc9c96a76ab5a12e66c7ebb  -- ID ключа сервера
-afc46336dd352049b366c7fd3fc1b143a518f0d02d9faef896cb0155488915d6  -- наш публичный ключ 
-408a2a4ed623b25a2e2ba8bbe92d01a3b5dbd22c97525092ac3203ce4044dcd2  -- sha256 хеш контента (до шифрования)
-...                                                               -- зашифрованное содержимое пакета
+daa76538d99c79ea097a67086ec05acca12d1fefdbc9c96a76ab5a12e66c7ebb  -- Server Key ID
+afc46336dd352049b366c7fd3fc1b143a518f0d02d9faef896cb0155488915d6  -- our public key
+408a2a4ed623b25a2e2ba8bbe92d01a3b5dbd22c97525092ac3203ce4044dcd2  -- sha256 content hash (before encryption)
+...                                                               -- encrypted content of the packet
 ```
-Теперь мы можем отправлять полученный пакет серверу по UDP, и ждать ответ. 
+Now we can send the received packet to the server via UDP, and wait for a response. 
 
-В ответ нам придет похожий по структуре пакет, но уже с другими сообщениями. Он будет состоять из:
-```
-
-68426d4906bafbd5fe25baf9e0608cf24fffa7eca0aece70765d64f61f82f005  -- ID нашего ключа
-2d11e4a08031ad3778c5e060569645466e52bd1bd2c7b78ddd56def1cf3760c9  -- публичный ключ сервера, для общего ключа
-f32fa6286d8ae61c0588b5a03873a220a3163cad2293a5dace5f03f06681e88a  -- sha256 хеш контента (до шифрования)
-...                                                               -- зашифрованное содержимое пакета
+In response, we will receive a packet similar in structure, but with different messages. It will consist of:
 ```
 
-Десериализация пакета от сервера происходит следующим образом:
-1. Проверяем айди ключа из пакета, чтобы понять, что пакет для нас.
-2. Используя публичный ключ сервера из пакета и наш приватный ключ, создаем общий ключ и дешифруем содержимое пакета
-3. Сравниваем присланный нам sha256 хеш с хешом полученным от дешифрованых данных, должны совпасть
-4. Начинаем десериализацию контента пакета, используя TL схему `adnl.packetContents`
+68426d4906bafbd5fe25baf9e0608cf24fffa7eca0aece70765d64f61f82f005  -- ID of our key
+2d11e4a08031ad3778c5e060569645466e52bd1bd2c7b78ddd56def1cf3760c9  -- server public key, for shared key
+f32fa6286d8ae61c0588b5a03873a220a3163cad2293a5dace5f03f06681e88a  -- sha256 content hash (before encryption)
+...                                                               -- the encrypted content of the packet
+```
 
-Контент пакета будет выглядеть следующим образом:
+The deserialization of the package from the server is as follows:
+1. We check the ID of the key from the packet to understand that the packet is for us.
+2. Using the public key of the server from the packet and our private key, we create a public key and decrypt the content of the package
+3. Compare the sha256 hash sent to us with the hash received from the decrypted data, they must match
+4. Start deserializing the packet content using the `adnl.packetContents` TL schema
+
+The content of the packet will look like this:
 ```
 89cd42d1                                                               -- TL ID adnl.packetContents
-0f 985558683d58c9847b4013ec93ea28                                      -- rand1, 15 (0f) случайных байт
+0f 985558683d58c9847b4013ec93ea28                                      -- rand1, 15 (0f) random bytes
 ca0d0000                                                               -- flags (0x0dca) -> 0b0000110111001010
-daa76538d99c79ea097a67086ec05acca12d1fefdbc9c96a76ab5a12e66c7ebb       -- from_short (т.к 1й бит флага равен 1)
-02000000                                                               -- messages (присутствует т.к 3й бит флага = 1)
+daa76538d99c79ea097a67086ec05acca12d1fefdbc9c96a76ab5a12e66c7ebb       -- from_short (because flag's first bit = 1)
+02000000                                                               -- messages (present because flag's third bit = 1)
    691ddd60                                                               -- TL ID adnl.message.confirmChannel 
-   db19d5f297b2b0d76ef79be91ad3ae01d8d9f80fab8981d8ed0c9d67b92be4e3       -- key (публичный ключ канала сервера)
-   d59d8e3991be20b54dde8b78b3af18b379a62fa30e64af361c75452f6af019d7       -- peer_key (наш публичный ключ канала)
+   db19d5f297b2b0d76ef79be91ad3ae01d8d9f80fab8981d8ed0c9d67b92be4e3       -- key (server channel public key)
+   d59d8e3991be20b54dde8b78b3af18b379a62fa30e64af361c75452f6af019d7       -- peer_key (our public channel key)
    94848863                                                               -- date
    
    1684ac0f                                                               -- TL ID adnl.message.answer 
    d7be82afbc80516ebca39784b8e2209886a69601251571444514b7f17fcd8875       -- query_id
-   90 48325384c6b413487d99e4a08031ad3778c5e060569645466e52bd5bd2c7b       -- answer (ответ на наш запрос, его содержание разберем в статье про DHT)
+   90 48325384c6b413487d99e4a08031ad3778c5e060569645466e52bd5bd2c7b       -- answer (the answer to our request, we will analyze its content in an article about DHT)
       78ddd56def1cf3760c901000000e7a60d67ad071541c53d0000ee354563ee       --
       35456300000000000000009484886340d46cc50450661a205ad47bacd318c       --
       65c8fd8e8f797a87884c1bad09a11c36669babb88f75eb83781c6957bc976       --
       6a234f65b9f6e7cc9b53500fbe2c44f3b3790f000000                        --
       000000                                                              --
-0100000000000000                                                       -- seqno (присутствует т.к 6й бит флага = 1)
-0100000000000000                                                       -- confirm_seqno (присутствует т.к 7й бит флага = 1)
-94848863                                                               -- recv_addr_list_version (присутствует т.к 8й бит = 1, обычно дата инициализации)
-ee354563                                                               -- reinit_date (присутствует т.к 10й бит флага = 1, обычно дата инициализации)
-94848863                                                               -- dst_reinit_date (присутствует т.к 10й бит флага = 1)
-40 5c26a2a05e584e9d20d11fb17538692137d1f7c0a1a3c97e609ee853ea9360ab6   -- signature (присутствует т.к 11й бит флага = 1), (bytes размер 64, падинг 3)
+0100000000000000                                                       -- seqno (present because flag's sixth bit = 1)
+0100000000000000                                                       -- confirm_seqno (present because flag's seventh bit = 1)
+94848863                                                               -- recv_addr_list_version (present because flag's eighth bit = 1, usually initialization date)
+ee354563                                                               -- reinit_date (present because flag's tenth bit = 1, usually initialization date)
+94848863                                                               -- dst_reinit_date (present because flag's tenth bit = 1)
+40 5c26a2a05e584e9d20d11fb17538692137d1f7c0a1a3c97e609ee853ea9360ab6   -- signature (present because flag's eleventh bit = 1), (bytes size 64, padding 3)
    d84263630fe02dfd41efb5cd965ce6496ac57f0e51281ab0fdce06e809c7901     --
    000000                                                              --
-0f c3354d35749ffd088411599101deb2                                      -- rand2, 15 (0f) случайных байт
+0f c3354d35749ffd088411599101deb2                                      -- rand2, 15 (0f) random bytes
 ```
 Сервер ответил нам двумя сообщениями: `adnl.message.confirmChannel` и `adnl.message.answer`. С `adnl.message.answer` все просто, это ответ на наш запрос `dht.getSignedAddressList`, его мы разберем в статье про DHT. 
 
