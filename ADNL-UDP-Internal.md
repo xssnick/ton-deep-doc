@@ -1,19 +1,19 @@
 ## ADNL UDP
 
-ADNL over UDP используется нодами и компонентами тона для коммуникации между собой. Это протокол нижнего уровня, поверх которого работают другие, более высокоуровневые протоколы TON, такие как DHT и RLDP. В этой статье мы разберем, как устроен ADNL over UDP при базовом обмене данными между нодами, туннелирование и анонимизация трафика будет разобрана в отдельной статье.
+ADNL over UDP is used by nodes and tone components to communicate with each other. It is a low-level protocol on top of which other, higher-level TON protocols such as DHT and RLDP operate. In this article, we will analyze how ADNL over UDP works for basic data exchange between nodes, tunneling and anonymizing traffic will be discussed in a separate article.
 
-В отличии от ADNL over TCP, в UDP реализации хэндшейк происходит в другом виде, и используется дополнительный слой в виде каналов, но другие принципы похожи: ключи так же генерируются на основе нашего приватного ключа и публичного ключа сервера, который известен заранее из конфига или получен от других узлов сети.
+Unlike ADNL over TCP, in the UDP implementation, the handshake takes place in a different form, and an additional layer is used in the form of channels, but other principles are similar: keys are also generated based on our private key and the server's public key, which is known in advance from the config or received from other network nodes.
 
-В UDP версии ADNL соединение устанавливается одновременно с получением превых данных от клиента, вычисляется ключ и подтверждается создание канала, если инициатор послал сообщение о желании создать канал. 
+In the UDP version of ADNL, the connection is established simultaneously with the receipt of initial data from the client, the key is calculated and the creation of the channel is confirmed, if the initiator sent a message about the desire to create a channel.
 
-В рамках одного соединения может быть открыто несколько каналов, они нужны для изоляции данных. Каждый канал имеет свой айди и ключ шифрования. Но обычно, для базового взаимодействия, используется всего один канал, который создается вместе с первым запросом.
+Within one connection, several channels can be opened, they are needed for data isolation. Each channel has its own ID and encryption key. But usually, for basic interaction, only one channel is used, which is created along with the first request.
 
-### Устройство пакетов и обмен информацией
+### Package arrangement and information exchange
 
-##### Первый обмен данными
-Разберем инициализацию соединения с DHT нодой и получения подписанного списка ее адресов, чтобы понять, как устроен обмен данными.
+##### First exchange of data
+Let's analyze the initialization of the connection with the DHT node and obtaining a signed list of its addresses in order to understand how the data exchange works.
 
-Найдем понравившуюся ноду в [конфиге меиннета](https://ton-blockchain.github.io/global.config.json), в разделе `dht.nodes`. Например:
+Find the node you like in [mainnet config](https://ton-blockchain.github.io/global.config.json), in the `dht.nodes` section. For example:
 ```json
 {
   "@type": "dht.node",
@@ -40,17 +40,17 @@ ADNL over UDP используется нодами и компонентами 
 }
 ```
 
-1. Возьмем ее ключ ED25519, `fZnkoIAxrTd4xeBgVpZFRm5SvVvSx7eN3Vbe8c83YMk`, декодируем из base64
-2. Возьмем ее IP адрес `1091897261` и переведем его в понятный формат, используя [сервис](https://www.browserling.com/tools/dec-to-ip), получим `65.21.7.173`
-3. Совместим с портом, получим `65.21.7.173:15813` и установим UDP соединение.
+1. Let's take its key ED25519, `fZnkoIAxrTd4xeBgVpZFRm5SvVvSx7eN3Vbe8c83YMk`, decode from base64
+2. Take its IP address `1091897261` and translate it into an understandable format using [service](https://www.browserling.com/tools/dec-to-ip), get `65.21.7.173`
+3. Combine with the port, get `65.21.7.173:15813` and establish a UDP connection.
 
-Мы хотим открыть канал для постоянного обмена информацией с нодой, и в качестве основной задачи - получить от нее список подписаных адресов. Для этого мы сформируем 2 сообщения, первое - [создать канал](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L129):
+We want to open a channel for constant exchange of information with the node, and as the main task - to receive a list of subscribed addresses from it. To do this, we will generate 2 messages, the first - [create a channel](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L129):
 ```
 adnl.message.createChannel key:int256 date:int = adnl.Message
 ```
-Тут у нас 2 параметра - ключ и дата. В качестве даты мы укажем текущий unix таймштамп. А для ключа - нам нужно сгенерировать новую пару ED25519 приватный/публичный ключ, специально для канала, они будут использоваться для инициализации [общего ключа шифрования](/ADNL-TCP-Liteserver.md#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BE%D0%B1%D1%89%D0%B5%D0%B3%D0%BE-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0-%D0%BF%D0%BE-ecdh). В параметр `key` сообщения мы укажем наш сгенерированный публичный ключ, а приватный пока просто запомним.
+Here we have 2 parameters - key and date. As a date, we will specify the current unix timestamp. And for the key - we need to generate a new ED25519 private / public key pair, specifically for the channel, they will be used for initialization of [public encryption key](/ADNL-TCP-Liteserver.md#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BE%D0%B1%D1%89%D0%B5%D0%B3%D0%BE-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0-%D0%BF%D0%BE-ecdh). We will specify our generated public key in the `key` parameter of the message, and just remember the private one for now.
 
-Сериализуем заполненную TL структуру и получим:
+Serialize the filled TL structure and get:
 ```
 bbc373e6                                                         -- TL ID adnl.message.createChannel 
 d59d8e3991be20b54dde8b78b3af18b379a62fa30e64af361c75452f6af019d7 -- key
