@@ -57,44 +57,44 @@ d59d8e3991be20b54dde8b78b3af18b379a62fa30e64af361c75452f6af019d7 -- key
 555c8763                                                         -- date
 ```
 
-Далее перейдем к нашему основному запросу - [получить список адресов](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L198). Чтобы его выполнить, нам надо сначала сериализовать его TL структуру:
+Next, let's move on to our main query - [get a list of addresses](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L198). To execute it, we first need to serialize its TL structure:
 ```
 dht.getSignedAddressList = dht.Node
 ```
-В нем нет параметров, поэтому просто сериализуем его. Получим `ed4879a9`
+It has no parameters, so we just serialize it. Get `ed4879a9`.
 
-Далее, так как это запрос более высокого уровня, протокола DHT, нам нужно сначала обернуть его в `adnl.message.query` TL структуру:
+Next, since this is a higher level request of the DHT protocol, we need to first wrap it in an `adnl.message.query` TL structure:
 ```
 adnl.message.query query_id:int256 query:bytes = adnl.Message
 ```
-В качестве `query_id` генерируем случайные 32 байта, в качестве `query` используем наш основной запрос, [обернутый как массив байтов](/TL.md#кодирование-bytes-в-tl). Получаем:
+As `query_id` we generate random 32 bytes, as `query` we use our main request, [wrapped as an array of bytes](/TL.md#кодирование-bytes-в-tl). Get:
 ```
 7af98bb4                                                         -- TL ID adnl.message.query
 d7be82afbc80516ebca39784b8e2209886a69601251571444514b7f17fcd8875 -- query_id
 04 ed4879a9 000000                                               -- query
 ```
  
-###### Собираем пакет
+###### Building the packet
 
-Весь обмен данными осуществляется с помощью пакетов, контент которых представляет из себя [TL структуру](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L81):
+All data exchange is carried out using packets, the content of which is [TL structure](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L81):
 ```
 adnl.packetContents 
-  rand1:bytes                                     -- случайные 7 или 15 байт
-  flags:#                                         -- битовые флаги, используются для определения наличия полей далее
-  from:flags.0?PublicKey                          -- публичный ключ отправителя
-  from_short:flags.1?adnl.id.short                -- айди отправителя
-  message:flags.2?adnl.Message                    -- сообщение (используется, если оно одно)
-  messages:flags.3?(vector adnl.Message)          -- сообщения (если их > 1)
-  address:flags.4?adnl.addressList                -- список наших адресов
-  priority_address:flags.5?adnl.addressList       -- приоритетный список наших адресов
-  seqno:flags.6?long                              -- порядковый номер пакета
-  confirm_seqno:flags.7?long                      -- порядковый номер последнего полученного пакета
-  recv_addr_list_version:flags.8?int              -- версия адресов 
-  recv_priority_addr_list_version:flags.9?int     -- версия приоритетных адресов
-  reinit_date:flags.10?int                        -- дата реинициализации соединения (сброса счетчиков)
-  dst_reinit_date:flags.10?int                    -- дата реинициализации соединения из последнего полученного пакета
-  signature:flags.11?bytes                        -- подпись
-  rand2:bytes                                     -- случайные 7 или 15 байт
+  rand1:bytes                                     -- random 7 or 15 bytes
+  flags:#                                         -- bit flags, used to determine the presence of fields further
+  from:flags.0?PublicKey                          -- sender's public key
+  from_short:flags.1?adnl.id.short                -- sender's ID
+  message:flags.2?adnl.Message                    -- message (used if there is only one message)
+  messages:flags.3?(vector adnl.Message)          -- messages (if there are > 1)
+  address:flags.4?adnl.addressList                -- list of our addresses
+  priority_address:flags.5?adnl.addressList       -- priority list of our addresses
+  seqno:flags.6?long                              -- packet sequence number
+  confirm_seqno:flags.7?long                      -- sequence number of the last packet received
+  recv_addr_list_version:flags.8?int              -- address version 
+  recv_priority_addr_list_version:flags.9?int     -- priority address version
+  reinit_date:flags.10?int                        -- connection reinitialization date (counter reset)
+  dst_reinit_date:flags.10?int                    -- connection reinitialization date from the last received packet
+  signature:flags.11?bytes                        -- signature
+  rand2:bytes                                     -- random 7 or 15 bytes
         = adnl.PacketContents
         
 ```
