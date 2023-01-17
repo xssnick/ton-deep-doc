@@ -1,131 +1,132 @@
 
 ## ADNL TCP + Liteserver
-Это протокол нижнего уровня, на котором построено все взаимодействие в сети TON, он может работать поверх любого протокола, но чаще всего применяется поверх TCP и UDP. UDP применяется для общения между нодами, а TCP для коммуникации с lite-серверами.
+This is the lower level protocol on which all interaction in the TON network is built, it can work on top of any protocol, but is most often used on top of TCP and UDP. UDP is used for communication between nodes, and TCP is used for communication with lite servers.
 
-Сейчас мы разберем ADNL работающий поверх TCP и научимся взаимодействовать с лайт-серверами напрямую.
+Now we will analyze ADNL running over TCP and learn how to interact with light servers directly.
 
-В TCP версии ADNL, в качестве адресов, узлы сети используют публичные ключи ed25519 и устанавливают соединение, используя общий ключ, полученный с помощью процедуры Диффи-Хелмана для эллиптических кривых - ECDH.
-
-### Структура пакетов
-Каждый ADNL TCP пакет, кроме хэндшейка, имеет структуру:
-* 4 байта размера пакета в little endian (N)
-* 32 байта nonce [[?]](## "Случайные байты, для защиты от атак на чексумму")
-* (N - 64) байт полезных данных
-* 32 байта чексумма SHA256 от nonce и полезных данных
-
-Весь пакет, включая размер, зашифрован **AES-CTR**.
-После расшифровки - нужно обязательно проверить, сходится ли чексумма с данными, для проверки нужно просто посчитать чексумму самостоятельно и сравнить результат с тем, что у нас в пакете.
-
-Хэндшейк пакет - исключение, он передается в частично открытом виде и описан в следующей главе.
+In the TCP version of ADNL, network nodes use public keys ed25519 as addresses and establish a connection using a shared key obtained using the Elliptic Curve Diffie-Hellman procedure - ECDH.
 
 
-### Установка соединения
-Для установки соединения нам нужно знать ip, порт и публичный ключ сервера, и сгенерировать свой приватный и публичный ключ ed25519. 
+### Package Structure
+Each ADNL TCP packet, except for the handshake, has the following structure:
+* 4 bytes of packet size in little endian (N)
+* 32 bytes nonce [[?]](## "Random bytes to protect against checksum attacks")
+* (N - 64) payload bytes
+* 32 bytes SHA256 checksum from nonce and payload
 
-Данные публичных серверов такие как ip, порт и ключ можно получить из [конфига](https://ton-blockchain.github.io/global.config.json). Айпи в конфиге в числовом виде, в нормальный вид его можно привести используя, например [этот инстурмент](https://www.browserling.com/tools/dec-to-ip). Публичный ключ в конфиге в base64 формате.
+The entire packet, including the size, is **AES-CTR** encrypted.
+After decryption, it is necessary to check whether the checksum matches the data, to check, you just need to calculate the checksum yourself and compare the result with what we have in the package.
 
-Клиент генерирует 160 случайных байт, часть из которых будет использоваться сторонами в качестве основы для AES шифрования. 
-
-Из них создаются 2 постоянных AES-CTR шифра, которые будут использоваться сторонами для шифрования/дешифрования сообщений после хэндшейка.
-* Шифр A - ключ 0 - 31 байты, iv 64 - 79 байты
-* Шифр B - ключ 32 - 63 байты, iv 80 - 95 байты
-
-Шифры применяются в таком порядке:
-* Шифр A используется сервером для шифрования отправляемых сообщений.
-* Шифр A используется клиентом для дешифрования полученных сообщений.
-* Шифр B используется клиентом для шифрования отправляемых сообщений.
-* Шифр B используется сервером для дешифрования полученных сообщений.
-
-Для установки соединения клиент должен отправить хэндшейк пакет, содержащий:
-* [32 байта] **Айди ключа сервера** [[Подробнее]](#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%B0%D0%B9%D0%B4%D0%B8-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0)
-* [32 байта] **Наш публичный ключ ed25519**
-* [32 байта] **SHA256 хэш от наших 160 байт**
-* [160 байт] **Наши 160 байт в зашифрованом виде** [[Подробнее]](#%D1%88%D0%B8%D1%84%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5-%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D1%85-handshake-%D0%BF%D0%B0%D0%BA%D0%B5%D1%82%D0%B0)
+The handshake packet is an exception, it is transmitted in a partially clear form and is described in the next chapter.
 
 
-При получении хэндшейк пакета, сервер проделает те же самые действия у себя, получит ECDH ключ, расшифрует 160 байт и создаст 2 постоянных ключа. Если все получится, сервер ответит пустым ADNL пакетом, без полезных данных, для дешифровки которого (а также последующих) нужно использовать один из постоянных шифров. 
+### Establishing a connection
+To establish a connection, we need to know the ip, port and public key of the server, and generate our own private and public key ed25519. 
 
-С этого момента можно считать соединение установленным.
+Public server data such as ip, port and key can be obtained from the [config](https://ton-blockchain.github.io/global.config.json). IP in the config in numerical form, it can be brought to normal using, for example [this tool](https://www.browserling.com/tools/dec-to-ip). The public key in the config in base64 format.
 
-## Обмен данными
-После того, как мы установили соединение, мы можем приступать к получению информации, для сериализации данных используется язык TL.
+The client generates 160 random bytes, some of which will be used by the parties as the basis for AES encryption.
 
-[Подробнее про TL](/TL.md)
+Of these, 2 permanent AES-CTR ciphers are created, which will be used by the parties to encrypt / decrypt messages after the handshake.
+* Cipher A - key 0 - 31 bytes, iv 64 - 79 bytes
+* Cipher B - key 32 - 63 bytes, iv 80 - 95 bytes
+
+The ciphers are applied in this order:
+* Cipher A is used by the server to encrypt the messages it sends.
+* Cipher A is used by the client to decrypt received messages.
+* Cipher B is used by the client to encrypt the messages it sends.
+* Cipher B is used by the server to decrypt received messages.
+
+To establish a connection, the client must send a handshake packet containing:
+* [32 bytes] **Server key ID** [[More]](#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%B0%D0%B9%D0%B4%D0%B8-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0)
+* [32 bytes] **Our public key is ed25519**
+* [32 bytes] **SHA256 hash from our 160 bytes**
+* [160 bytes] **Our 160 bytes encrypted** [[More]](#%D1%88%D0%B8%D1%84%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5-%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D1%85-handshake-%D0%BF%D0%B0%D0%BA%D0%B5%D1%82%D0%B0)
+
+
+When receiving a handshake packet, the server will do the same actions on itself, receive an ECDH key, decrypt 160 bytes and create 2 permanent keys. If everything works out, the server will respond with an empty ADNL packet, without payload, to decrypt which (as well as subsequent ones) you need to use one of the permanent ciphers. 
+
+From this point on, the connection can be considered established.
+
+## Data exchange
+After we have established a connection, we can start receiving information; the TL language is used to serialize data.
+
+[More about TL](/TL.md)
 
 ### Ping&Pong
-Ping пакет оптимально отправлять примерно раз в 5 секунд. Это нужно для поддержания соединения, пока обмен данными не происходит, иначе сервер оборвет соединение.
+It is optimal to send a ping packet about once every 5 seconds. This is necessary to maintain the connection while no data is being exchanged, otherwise the server will terminate the connection.
 
-Ping пакет, как и все остальные, строится по стандартной схеме, описанной [выше](#структура-пакетов), и в качестве полезных данных несет идентификатор и айди запроса. 
+The ping packet, like all the others, is built according to the standard scheme described [above](#package-structure), and carries the request ID and ping ID as payload data.
 
-Найдем нужную схему для пинг запроса [тут](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L35) и вычислим айди схемы, как
-`crc32_IEEEE("tcp.ping random_id:long = tcp.Pong")`. При конвертации в байты с порядком little endian получим **9a2b084d**.
+Let's find the desired scheme for the ping request [here](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L35) and calculate the scheme id as 
+`crc32_IEEEE("tcp.ping random_id:long = tcp.Pong")`. When converted to little endian bytes, we get **9a2b084d**.
 
-Таким образом наш ADNL ping пакет будет выглядеть так:
-* 4 байта размера пакета в little endian -> 64 + (4+8) = **76**
-* 32 байта nonce -> случайные 32 байта
-* 4 байта ID TL схемы -> **9a2b084d**
-* 8 байт айди запроса -> случайное число uint64 
-* 32 байта чексумма SHA256 от nonce и полезных данных
+Thus, our ADNL ping packet will look like this:
+* 4 bytes of packet size in little endian -> 64 + (4+8) = **76**
+* 32 bytes nonce -> random 32 bytes
+* 4 bytes of ID TL schema -> **9a2b084d**
+* 8 bytes of request id -> random number uint64 
+* 32 bytes of SHA256 checksum from nonce and payload
 
-Отправляем наш пакет и в ответ ждем [tcp.pong](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L23), `random_id` будет равен тому, который мы отправили в ping.
+We send our packet and wait for [tcp.pong](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L23), `random_id` will be equal to the one we sent to ping.
 
-### Получение информации от лайт сервера
-Все запросы, которые направлены на получение информации из блокчеина, обернуты в [LiteServer Query](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L83) схему, которая в свою очередь обернута в [ADNL Query](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L22) схему.
+### Receiving information from a light server
+All requests that are aimed at obtaining information from the blockchain are wrapped in [LiteServer Query](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L83) schema, which in turn is wrapped in [ADNL Query](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L22) schema.
 
 LiteQuery:
-`liteServer.query data:bytes = Object`, айди **df068c79**
+`liteServer.query data:bytes = Object`, id **df068c79**
 
 ADNLQuery:
-`adnl.message.query query_id:int256 query:bytes = adnl.Message`, айди **7af98bb4**
+`adnl.message.query query_id:int256 query:bytes = adnl.Message`, id **7af98bb4**
 
-LiteQuery передается внутри ADNLQuery, как `query:bytes`, а конечный запрос передается внутри LiteQuery, как `data:bytes`.
+LiteQuery is passed inside ADNLQuery, as `query:bytes`, and the final query is passed inside LiteQuery, as `data:bytes`.
 
-[Разбор кодирования bytes в TL](/TL.md)
+[Parsing encoding bytes in TL](/TL.md)
 
-#### Получение полезных данных
-Теперь, так как мы уже умеем формировать TL пакеты для Lite API, мы можем запросить информацию о текущем блоке мастерчеина TON. Блок мастерчеина используется во многих дальнейших запросах, как входящий параметр, для индикации состояния (момента), в котором нам нужна информация.
+#### Getting payloads
+Now, since we already know how to generate TL packets for the Lite API, we can request information about the current TON masterchain block. The masterchain block is used in many further requests as an input parameter to indicate the state (moment) in which we need information.
 
 ##### getMasterchainInfo
-Ищем нужную нам [TL схему](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L60), вычисляем ее айди и строим пакет:
+We are looking for the [TL schema we need](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L60), calculate its ID and build the package:
 
-* 4 байта размера пакета в little endian -> 64 + (4+32+(1+4+(1+4+3)+3)) = **116**
-* 32 байта nonce -> случайные 32 байта
-* 4 байта ID ADNLQuery схемы -> **7af98bb4**
-* 32 байта `query_id:int256` -> случайные 32 байта
-* * 1 байт размер массива -> **12**
-* * 4 байта ID LiteQuery схемы -> **df068c79**
-* * * 1 байт размер массива -> **4**
-* * * 4 байта ID getMasterchainInfo схемы -> **2ee6b589**
-* * * 3 нулевых байта падинга (выравнивание к 8)
-* * 3 нулевых байта падинга (выравнивание к 16)
-* 32 байта чексумма SHA256 от nonce и полезных данных
+* 4 bytes of packet size in little endian -> 64 + (4+32+(1+4+(1+4+3)+3)) = **116**
+* 32 bytes nonce -> random 32 bytes
+* 4 bytes of ID ADNLQuery schema -> **7af98bb4**
+* 32 bytes `query_id:int256` -> random 32 bytes
+* * 1 byte array size -> **12**
+* * 4 byte of ID LiteQuery schema -> **df068c79**
+* * * 1 byte array size -> **4**
+* * * 4 bytes of ID getMasterchainInfo schema -> **2ee6b589**
+* * * 3 null bytes of padding (alignment to 8)
+* * 3 null bytes of padding (alignment to 16)
+* 32 bytes of checksum SHA256 from nonce and payload
 
-Пример пакета в hex:
+Packet example in hex:
 ```
-74000000                                                             -> размер пакета (116)
+74000000                                                             -> packet size (116)
 5fb13e11977cb5cff0fbf7f23f674d734cb7c4bf01322c5e6b928c5d8ea09cfd     -> nonce
   7af98bb4                                                           -> ADNLQuery
   77c1545b96fa136b8e01cc08338bec47e8a43215492dda6d4d7e286382bb00c4   -> query_id
-    0c                                                               -> размер массива
+    0c                                                               -> array size
     df068c79                                                         -> LiteQuery
-      04                                                             -> размер массива
+      04                                                             -> array size
       2ee6b589                                                       -> getMasterchainInfo
-      000000                                                         -> 3 байта падинг
-    000000                                                           -> 3 байта падинг
+      000000                                                         -> 3 bytes of padding
+    000000                                                           -> 3 bytes of padding
 ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 ```
 
-В ответ мы ожидаем получить [liteServer.masterchainInfo](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L30), состоящий из last:[ton.blockIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/tonlib_api.tl#L51) state_root_hash:int256 и init:[tonNode.zeroStateIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L359).
+In response, we expect to receive [liteServer.masterchainInfo](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L30), consisting of  last:[ton.blockIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/tonlib_api.tl#L51) state_root_hash:int256 и init:[tonNode.zeroStateIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L359).
 
-Полученый пакет десериализуется тем же самым образом, что и отправленый, - тот же алгоритм, но в обратную сторону, разве что ответ завернут только в [ADNLAnswer](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L23).
+The received packet is deserialized in the same way as the sent one - he same algorithm, but in the opposite direction, except that the response is wrapped only in [ADNLAnswer](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L23).
 
-После расшифровки ответа, получаем пакет вида:
+After decoding the response, we get a packet of the form:
 ```
-20010000                                                                  -> размер пакета (288)
+20010000                                                                  -> packet size (288)
 5558b3227092e39782bd4ff9ef74bee875ab2b0661cf17efdfcd4da4e53e78e6          -> nonce
   1684ac0f                                                                -> ADNLAnswer
-  77c1545b96fa136b8e01cc08338bec47e8a43215492dda6d4d7e286382bb00c4        -> query_id (идентичен запросу)
-    b8                                                                    -> размер массива
+  77c1545b96fa136b8e01cc08338bec47e8a43215492dda6d4d7e286382bb00c4        -> query_id (identical to request)
+    b8                                                                    -> array size
     81288385                                                              -> liteServer.masterchainInfo
                                                                           last:tonNode.blockIdExt
         ffffffff                                                          -> workchain:int
@@ -138,7 +139,7 @@ ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
         ffffffff                                                          -> workchain:int
         17a3a92992aabea785a7a090985a265cd31f323d849da51239737e321fb05569  -> root_hash:int256      
         5e994fcf4d425c0a6ce6a792594b7173205f740a39cd56f537defd28b48a0f6e  -> file_hash:int256
-    000000                                                                -> падинг 3 байта
+    000000                                                                -> 3 bytes of padding
 520c46d1ea4daccdf27ae21750ff4982d59a30672b3ce8674195e8a23e270d21          -> sha256
 ```
 
