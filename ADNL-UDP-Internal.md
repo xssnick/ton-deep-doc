@@ -272,38 +272,38 @@ fe3c0f39a89917b7f393533d1d06b605b673ffae8bbfab210150fe9d29083c35          -- que
 0100000000000000                                                       -- confirm_seqno (flag's seventh bit = 1), 1 because it is the last seqno received from the server
 07 e4092842a8ae18                                                      -- rand2, 7 (07) random bytes
 ```
-Пакеты в канале довольно просты и состоят по сути из сиквенсов (seqno) и самих сообщений. 
+The packets in a channel are quite simple and essentially consist of sequences (seqno) and the messages themselves. 
 
-После сериализации, как и в прошлый раз, мы вычисляем sha256 хеш от контента. Потом шифруем контент пакета с помощью ключа, предназначенного для исходящих пакетов канала. [Посчитаем](/ADNL-TCP-Liteserver.md#дополнительные-технические-детали-хендшейка) `pub.aes` ID нашего ключа шифрования исходящих сообщений, И собираем наш пакет:
+After serialization, like last time, we calculate the sha256 hash from the content. Then we encrypt the content of the packet using the key intended for the outgoing packets of the channel. [Calculate](/ADNL-TCP-Liteserver.md#дополнительные-технические-детали-хендшейка) `pub.aes` ID of encryption key of our outgoing messages, and we collect our package:
 ```
-bcd1cf47b9e657200ba21d94b822052cf553a548f51f539423c8139a83162180 -- ID нашего ключа шифрования исходящих сообщений
-6185385aeee5faae7992eb350f26ba253e8c7c5fa1e3e1879d9a0666b9bd6080 -- sha256 хеш контента (до шифрования)
-...                                                              -- зашифрованное содержимое пакета
+bcd1cf47b9e657200ba21d94b822052cf553a548f51f539423c8139a83162180 -- ID of encryption key of our outgoing messages 
+6185385aeee5faae7992eb350f26ba253e8c7c5fa1e3e1879d9a0666b9bd6080 -- sha256 content hash (before encryption)
+...                                                              -- the encrypted content of the package
 ```
-Отправляем пакет по UDP и ждем ответ. В ответе мы получим пакет того же вида, что и отправили (те же поля), но уже с ответом на наш запрос `dht.getSignedAddressList`.
+We send a packet via UDP and wait for a response. In response, we will receive a packet of the same type as we sent (the same fields), but with the answer to our request `dht.getSignedAddressList`.
 
-#### Другие типы сообщений
-Для основной коммуникации используются сообщения типа `adnl.message.query` и `adnl.message.answer` которые мы разобрали выше, но для некоторых ситуаций возможны и использование других типов сообщений, которые мы разберем в этом разделе.
+#### Other message types
+For basic communication, messages like `adnl.message.query` and `adnl.message.answer` are used, which we discussed above, but other types of messages are also possible for some situations, which we will discuss in this section.
 
-##### adnl.message.part
-Сообщение этого типа представляет из себя кусок одного из других возможных типов сообщений, например `adnl.message.answer`. Передача таким методом используется когда сообщение слишком велико для передаче его в одной UDP датаграме. 
+#####adnl.message.part
+This message type is a piece of one of the other possible message types, such as `adnl.message.answer`. This method of transmission is used when the message is too large to be transmitted in a single UDP datagram.
 ```
 adnl.message.part 
-hash:int256            -- sha256 хеш оригинального сообщения
-total_size:int         -- размер оригинального сообщения
-offset:int             -- смещение относительно начала оригинального сообщения
-data:bytes             -- кусок данных оригинального сообщения
+hash:int256            -- sha256 hash of the original message
+total_size:int         -- original message size
+offset:int             -- offset according to the beginning of the original message
+data:bytes             -- piece of data of the original message
    = adnl.Message;
 ```
-Таким образом, чтобы собрать оригинальное сообщение, нам нужно получить несколько партов и согласно оффсетам сложить их в единый массив байтов. А далее уже обработать как сообщение (согласно префиксу в этом массиве).
+Thus, in order to assemble the original message, we need to get several parts and, according to the offsets, add them into a single byte array. And then process it as a message (according to the prefix in this array).
 
 ##### adnl.message.custom
 ```
 adnl.message.custom data:bytes = adnl.Message;
 ```
-Такие сообщения используются, когда логика на уровне выше не соответствует формату запрос-ответ, сообщения такого типа позволяют полностью вынести обработку на уровень выше, так как сообщение несет только массив байтов, без query_id и прочих полей. Сообщения такого типа используются, например в RLDP, так как там на множество запросов может быть всего один ответ и эта логика контролируется самим RLDP.
+Such messages are used when the logic at the higher level does not correspond to the request-response format, messages of this type allow you to completely move the processing to the higher level, since the message carries only an array of bytes, without query_id and other fields. Messages of this type are used, for example, in RLDP, since there can be only one response to many requests and this logic is controlled by RLDP itself.
 
-##### Заключение
+##### Conclusion
 
-Дальнейший обмен данными происходит на основе разобранной в этой статье логики, 
-но содержание пакетов зависит уже от более высокоуровневых протоколов, таких как DHT и RLDP.
+Further data exchange takes place on the basis of the logic discussed in this article,
+but the content of the packets depends on higher level protocols such as DHT and RLDP.
