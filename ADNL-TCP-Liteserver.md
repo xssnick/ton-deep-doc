@@ -144,32 +144,32 @@ After decoding the response, we get a packet of the form:
 ```
 
 ##### runSmcMethod
-Мы уже умеем получать блок мастерчеина, значит теперь мы можем вызывать любые методы лайт-сервера.
-Разберем **runSmcMethod** - это метод, который вызывает функцию из смарт контракта и возвращает результат. Здесь нам потребуется понять некоторые новые типы данных, такие как [TL-B](/TL-B.md), [Cell](https://ton.org/docs/learn/overviews/Cells) и [BoC](/Cells-BoC.md#bag-of-cells).
+We already know how to get the masterchain block, so now we can call any light server methods.
+Let's analyze **runSmcMethod** - this is a method that calls a function from a smart contract and returns a result.  Here we need to understand some new data types such as [TL-B](/TL-B.md), [Cell](https://ton.org/docs/learn/overviews/Cells) и [BoC](/Cells-BoC.md#bag-of-cells).
 
-Для выполнения метода смарт-контракта нам нужно отправить запрос по TL схеме:
+To execute the smart contract method, we need to send a request using the TL schema:
 `liteServer.runSmcMethod mode:# id:tonNode.blockIdExt account:liteServer.accountId method_id:long params:bytes = liteServer.RunMethodResult`
 
-И ждать ответ вида:
+And wait for a response like:
 `liteServer.runMethodResult mode:# id:tonNode.blockIdExt shardblk:tonNode.blockIdExt shard_proof:mode.0?bytes proof:mode.0?bytes state_proof:mode.1?bytes init_c7:mode.3?bytes lib_extras:mode.4?bytes exit_code:int result:mode.2?bytes = liteServer.RunMethodResult;`
 
-В запросе мы видим такие поля:
-1. mode:# - uint32 битовая маска того, что мы хотим видеть в ответе, например, result:mode.2?bytes будет присутствовать в ответе только, если бит с индексом 2 равен единице.
-2. id:tonNode.blockIdExt - наш стейт мастер блока, который мы получили в прошлой главе.
-3. account:[liteServer.accountId](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L27) - воркчеин и данные адреса смарт контракта.
-4. method_id:long - 8 байт, в которых пишется crc16 с таблицей XMODEM от имени вызываемого метода и установленый 17й бит [[Расчет]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
-5. params:bytes - [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](/Cells-BoC.md#bag-of-cells), содержащий аргументы для вызова метода. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/tlb/stack.go)
+In the request, we see the following fields:
+1. mode:# - uint32 bitmask of what we want to see in the response, for example, result:mode.2?bytes will only be present in the response if the bit with index 2 is one.
+2. id:tonNode.blockIdExt - is our master block state that we got in the previous chapter.
+3. account:[liteServer.accountId](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L27) - workchain and smart contract address data.
+4. method_id:long - 8 bytes, in which crc16 is written with the XMODEM table on behalf of the called method + bit 17 is set [[Calculation]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
+5. params:bytes - [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) serialized in [BoC](/Cells-BoC.md#bag-of-cells), containing arguments to call the method. [[Implementation example]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/tlb/stack.go)
 
-Например, нам нужен только `result:mode.2?bytes`, тогда наш mode будет равен 0b100, то есть 4. В ответ мы получим:
-1. mode:# -> то, что и отправляли, - 4.
-2. id:tonNode.blockIdExt -> наш мастер блок, относительно которого был выполнен метод
-3. shardblk:tonNode.blockIdExt -> шард блок, в котором находится аккаунт контракта
-4. exit_code:int -> 4 байта, которые являются кодом выхода при выполнении метода. Если все успешно, то = 0, если нет - равен коду исключения
-5. result:mode.2?bytes -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) сериализованый в [BoC](/Cells-BoC.md#bag-of-cells), содержащий возвращенные методом значения.
+For example, we only need `result:mode.2?bytes`, then our mode will be equal to 0b100, that is 4. In response, we will get:
+1. mode:# -> what was sent - 4.
+2. id:tonNode.blockIdExt -> our master block against which the method was executed
+3. shardblk:tonNode.blockIdExt -> shard block where the contract account is located
+4. exit_code:int -> 4 bytes which is the exit code when executing the method. If everything is successful, then = 0, if not, it is equal to the exception code.
+5. result:mode.2?bytes -> [Stack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L783) serialized in [BoC](/Cells-BoC.md#bag-of-cells), containing the values returned by the method.
 
-Разберем вызов и получение результата от метода `a2` контракта `EQBL2_3lMiyywU17g-or8N7v9hDmPCpttzBPE2isF2GTzpK4`:
+Let's analyze the call and getting the result from the `a2` method of the contract `EQBL2_3lMiyywU17g-or8N7v9hDmPCpttzBPE2isF2GTzpK4`:
 
-Код метода на FunC:
+Method code in FunC:
 ```
 (cell, cell) a2() method_id {
   cell a = begin_cell().store_uint(0xAABBCC8, 32).end_cell();
@@ -178,14 +178,14 @@ After decoding the response, we get a packet of the form:
 }
 ```
 
-Заполняем наш запрос:
-* `mode` = 4, нам нужен только результат -> `04000000`
-* `id` = результат выполнения getMasterchainInfo
-* `account` = воркчеин 0 (4 байта `00000000`), и int256 [полученный из адреса нашего контракта](/Address.md#сериализация), то есть 32 байта `4bdbfde5322cb2c14d7b83ea2bf0deeff610e63c2a6db7304f1368ac176193ce`
-* `method_id` = [вычисленый](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16) id от `a2` -> `0a2e010000000000`
-* `params:bytes` = Наш метод не принимает входных параметров, значит нам нужно передать ему пустой стек (`000000`, ячейка 3 байта - стек 0 глубины) сериализованый в [BoC](/Cells-BoC.md#bag-of-cells) -> `b5ee9c72010101010005000006000000` -> сериализуем в bytes и получаем `10b5ee9c72410101010005000006000000000000` 0x10 - размер, 3 байта в конце - падинг.
+Fill out our request:
+* `mode` = 4, we only need the result -> `04000000`
+* `id` = result of execution getMasterchainInfo
+* `account` = workchain 0 (4 bytes `00000000`), and int256 [obtained from our contract address](/Address.md#сериализация), i.e. 32 bytes `4bdbfde5322cb2c14d7b83ea2bf0deeff610e63c2a6db7304f1368ac176193ce`
+* `method_id` = [computed](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16) id from `a2` -> `0a2e010000000000`
+* `params:bytes` = Our method does not accept input parameters, so we need to pass it an empty stack (`000000`, cell 3 bytes - stack depth 0) serialized in [BoC](/Cells-BoC.md#bag-of-cells) -> `b5ee9c72010101010005000006000000` -> serialize in bytes and get `10b5ee9c72410101010005000006000000000000` 0x10 - size, 3 bytes in the end - padding.
 
-В ответе получаем:
+In response we get:
 * `mode:#` -> не интересен
 * `id:tonNode.blockIdExt` -> не интересен
 * `shardblk:tonNode.blockIdExt` -> не интересен
