@@ -226,51 +226,51 @@ ee354563                                                               -- reinit
    000000                                                              --
 0f c3354d35749ffd088411599101deb2                                      -- rand2, 15 (0f) random bytes
 ```
-Сервер ответил нам двумя сообщениями: `adnl.message.confirmChannel` и `adnl.message.answer`. С `adnl.message.answer` все просто, это ответ на наш запрос `dht.getSignedAddressList`, его мы разберем в статье про DHT. 
+The server responded to us with two messages: `adnl.message.confirmChannel` and `adnl.message.answer`. With `adnl.message.answer` everything is simple, this is the answer to our request `dht.getSignedAddressList`, we will analyze it in the article about DHT.
 
-Сфокусируемся на `adnl.message.confirmChannel`, оно значит, что сервер подтвердил создание канала и прислал нам свой публичный ключ канала. Теперь, имея наш приватный ключ канала и публичный ключ канала сервера, мы можем вычислить [общий ключ](/ADNL-TCP-Liteserver.md#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BE%D0%B1%D1%89%D0%B5%D0%B3%D0%BE-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0-%D0%BF%D0%BE-ecdh).
+Let's focus on `adnl.message.confirmChannel`, which means that the server has confirmed the creation of the channel and sent us its public channel key. Now, having our private channel key and the server's public channel key, we can calculate the [shared key](/ADNL-TCP-Liteserver.md#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BE%D0%B1%D1%89%D0%B5%D0%B3%D0%BE-%D0%BA%D0%BB%D1%8E%D1%87%D0%B0-%D0%BF%D0%BE-ecdh).
 
-Теперь, когда мы вычислили общий ключ канала, нам нужно сделать из него 2 ключа - один для шифрования исходящих сообщений, другой для дешифрования входящих. Сделать из него 2 ключа довольно просто, второй ключ равен общему ключу записанному в обратном порядке. Пример:
+Now when we have calculated the shared channel key, we need to make 2 keys out of it - one for encrypting outgoing messages, the other for decrypting incoming messages. Making 2 keys out of it is quite simple, the second key is equal to the common key written in reverse order. Example:
 ```
-Общий ключ : AABB2233
+Shared key : AABB2233
 
-Первый ключ: AABB2233
-Второй ключ: 3322BBAA
+First key: AABB2233
+Second key: 3322BBAA
 ```
-Осталось определить какой ключ для чего использовать, мы можем это сделать, сравнив айди нашего публичного ключа канала с айди публичного ключа канала сервера, переведя их в числовой вид - uint256. Такой подход используется для того, чтобы и сервер, и клиент определили, какой ключ для чего им использовать. Если сервер использует первый ключ для шифрования, то с таким подходом клиент всегда будет использовать его для дешифровки. 
+It remains to determine which key to use for what, we can do this by comparing the id of our public channel key with the id of the public key of the server channel, converting them to a numerical form - uint256. This approach is used to ensure that both the server and the client determine which key to use for what. If the server uses the first key for encryption, then with this approach the client will always use it for decryption.
 
-Условия использования такие:
+The terms of use are:
 ```
-Айди сервера меньше, чем наш айди:
-Шифрование: Первый ключ
-Дешифровка: Второй ключ
+The server id is smaller than our id:
+Encryption: First Key
+Decryption: Second Key
 
-Айди сервера больше, чем наш айди:
-Шифрование: Второй ключ
-Дешифровка: Первый ключ
+The server id is larger than our id:
+Encryption: Second Key
+Decryption: First Key
 
-Если айди равны (почти невозможно):
-Шифрование: Первый ключ
-Дешифровка: Первый ключ
+If the ids are equal (nearly impossible):
+Encryption: First Key
+Decryption: First Key
 ```
-[[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/udp-rldp-2/adnl/adnl.go#L502)
+[[Implementation example]](https://github.com/xssnick/tonutils-go/blob/udp-rldp-2/adnl/adnl.go#L502)
 
-##### Обмен данныме в канале
+##### Data exchange in a channel
 
-Весь последующий обмен пакетами будет происходить внутри канала, и для шифрования будут использоваться новые ключи. Отправим тот же самый запрос `dht.getSignedAddressList`, но уже внутри свежесозданного канала, чтобы увидеть разницу.
+All subsequent packet exchange will occur within the channel, and new keys will be used for encryption. Let's send the same `dht.getSignedAddressList` request inside a freshly created channel to see the difference.
 
-Соберем контент пакета для канала, используя ту же структуру `adnl.packetContents`:
+Let's collect the package content for the channel using the same `adnl.packetContents` structure:
 ```
 89cd42d1                                                               -- TL ID adnl.packetContents
-0f c1fbe8c4ab8f8e733de83abac17915                                      -- rand1, 15 (0f) случайных байт
+0f c1fbe8c4ab8f8e733de83abac17915                                      -- rand1, 15 (0f) random bytes
 c4000000                                                               -- flags (0x00c4) -> 0b0000000011000100
-                                                                       -- message (т.к 2й бит = 1)
+                                                                       -- message (because second bit = 1)
 7af98bb4                                                                  -- TL ID adnl.message.query
 fe3c0f39a89917b7f393533d1d06b605b673ffae8bbfab210150fe9d29083c35          -- query_id
-04 ed4879a9 000000                                                        -- query (наш dht.getSignedAddressList упакованный в bytes с падингом 3)
-0200000000000000                                                       -- seqno (т.к 6й бит флага = 1), 2 тк это второе наше сообщение
-0100000000000000                                                       -- confirm_seqno (7й бит флага = 1), 1 тк это последний полученный от сервера seqno
-07 e4092842a8ae18                                                      -- rand2, 7 (07) случайных байт
+04 ed4879a9 000000                                                        -- query (our dht.getSignedAddressList packed in bytes with padding 3)
+0200000000000000                                                       -- seqno (because flag's sixth bit = 1), 2 because it is our second message
+0100000000000000                                                       -- confirm_seqno (flag's seventh bit = 1), 1 because it is the last seqno received from the server
+07 e4092842a8ae18                                                      -- rand2, 7 (07) random bytes
 ```
 Пакеты в канале довольно просты и состоят по сути из сиквенсов (seqno) и самих сообщений. 
 
