@@ -1,11 +1,11 @@
 ## Cell
-Cell - это ячейка, контейнер для данных который может хранить до 1023 битов и иметь до 4х ссылок на другие Cell'ы. В ТОНе все состоит из целлов, код контрактов, хранимые данные, блоки. За счет такого подхода достигается универсальность.
+Cell is a cell, a container for data that can store up to 1023 bits and have up to 4 references to other Cells. In TON, everything consists of cells, contract code, stored data, blocks. This approach achieves versatility.
 
 ## Bag of Cells
-Bag of Cells - формат сериализации ячеек (cells) в массив байт, описанный в виде [TL-B схемы](https://github.com/ton-blockchain/ton/blob/24dc184a2ea67f9c47042b4104bbb4d82289fac1/crypto/tl/boc.tlb#L25).
+Bag of Cells - format for serializing cells into an array of bytes, described as [TL-B schema](https://github.com/ton-blockchain/ton/blob/24dc184a2ea67f9c47042b4104bbb4d82289fac1/crypto/tl/boc.tlb#L25).
 
-#### Сериализация ячеек
-Разберем ячейку вида:
+#### Cell serialization
+Let's analyze this kind of cell:
 ```
 1[8_] -> {
   24[0AAAAA],
@@ -14,52 +14,52 @@ Bag of Cells - формат сериализации ячеек (cells) в ма�
   }
 }
 ```
-Тут мы имеем корневую ячейку размером 1 бит, которая имеет 2 ссылки: первая на ячейку размером 24 бита и вторая на ячейку размером 7 бит, которая имеет 1 ссылку на ячейку размером 24 бита.
+Here we have a 1-bit root cell that has 2 links: the first to a 24-bit cell and the second to a 7-bit cell, which has 1 link to a 24-bit cell.
 
-Нам нужно превратить ячейки в плоский набор байтов, для этого нам сначала нам нужно оставить только уникальные ячейки - их у нас 3 из 4х. Имеем:
+We need to turn the cells into a flat set of bytes, for this we first need to leave only unique cells - we have 3 out of 4 of them. We have:
 ```
 1[8_]
 24[0AAAAA]
 7[FE]
 ```
-Теперь расположим их в таком порядке, чтобы родительские ячейки не указывали назад. Та ячейка, на которую указывают остальные, должна быть в списке после тех, которые на нее указывают. Получаем:
+Now let's arrange them in such an order that the parent cells do not point backwards. The cell pointed to by the rest must be in the list after the ones that point to it. We get:
 ```
-1[8_]      -> индекс 0 (корневая ячейка)
-7[FE]      -> индекс 1
-24[0AAAAA] -> индекс 2
+1[8_]      -> index 0 (root cell)
+7[FE]      -> index 1
+24[0AAAAA] -> index 2
 ```
 
-Посчитаем дескрипторы для каждой из них. Это 2 байта, хранящие флаги, информацию о длине данных и количестве ссылок. Флаги будут опущены в текущем разборе, они почти всегда 0. Первый байт содержит 5 битов флагов и 3 бита количества ссылок. Второй байт - длину полных 4х битных групп (но минимум 1, если не пусто). Получаем:
+Let's count descriptors for each of them. These are 2 bytes that store flags, information about the length of the data and the number of links. The flags will be omitted in the current parse, they are almost always 0. The first byte contains 5 flag bits and 3 link count bits. The second byte is the length of the full 4-bit groups (but at least 1 if not empty). We get:
 ```
-1[8_]      -> 0201 -> 2 ссылки, длина 1 
-7[FE]      -> 0101 -> 1 ссылка, длина 1
-24[0AAAAA] -> 0006 -> 0 ссылок, длина 6
+1[8_]      -> 0201 -> 2 links, length 1 
+7[FE]      -> 0101 -> 1 link, length 1
+24[0AAAAA] -> 0006 -> 0 links, length 6
 ```
-Для данных с неполными 4х битными группами добавляется 1 бит в конец. Он означает конечный бит группы и служит для определения настоящего размера неполных групп. Добавим его:
+For data with incomplete 4-bit groups, 1 bit is added to the end. It means the end bit of the group and is used to determine the true size of incomplete groups. Let's add it:
 ```
 1[8_]      -> C0     -> 0b10000000->0b11000000
 7[FE]      -> FF     -> 0b11111110->0b11111111
-24[0AAAAA] -> 0AAAAA -> не меняем (полные группы)
+24[0AAAAA] -> 0AAAAA -> do not change (full groups)
 ```
 
-Теперь добавим индексы ссылок:
+Now let's add link indexes:
 ```
-0 1[8_]      -> 0201 -> ссылается на 2 ячейки с такими индексами
-1 7[FE]      -> 02 -> ссылается на ячейки с индексом 2
-2 24[0AAAAA] -> нет ссылок
+0 1[8_]      -> 0201 -> refers to 2 cells with such indexes
+1 7[FE]      -> 02 -> refers to cells with index 2
+2 24[0AAAAA] -> no links
 ```
 
-И соберем все вместе:
+And put it all together:
 ```
 0201 C0     0201  
 0101 AA     02
 0006 0AAAAA 
 ```
 
-И склеим в массив байт:
-`0201c002010101ff0200060aaaaa`, размер 14 байт.
+And glue it into an array of bytes:
+`0201c002010101ff0200060aaaaa`, size 14 bytes.
 
-[Пример сериализации](https://github.com/xssnick/tonutils-go/blob/3d9ee052689376061bf7e4a22037ff131183afad/tvm/cell/serialize.go#L205)
+[Serialization example](https://github.com/xssnick/tonutils-go/blob/3d9ee052689376061bf7e4a22037ff131183afad/tvm/cell/serialize.go#L205)
 
 #### Упаковка в BoC
 Упакуем ячейку из прошлой главы. Мы уже сериализовали ее в плоский массив байт длиной 14.
