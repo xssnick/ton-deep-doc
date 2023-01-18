@@ -38,7 +38,7 @@ dht.findValue key:int256 k:int = dht.ValueResult
 ```
 `key` is the id of our DHT key, and `k` is the "width" of the search, the smaller it is, the more accurate, but fewer potential nodes for polling. The maximum k for nodes in a TON is 10, we can use 6.
 
-Let's populate this structure, serialize and send the request using the `adnl.message.query` scheme. [You can read more about this in another article.](/ADNL-UDP-Internal.md#устройство-пакетов-и-обмен-информацией).
+Let's populate this structure, serialize and send the request using the `adnl.message.query` schema. [You can read more about this in another article.](/ADNL-UDP-Internal.md#устройство-пакетов-и-обмен-информацией).
 
 In response, we can get:
 * `dht.valueNotFound` - if the value is not found.
@@ -47,7 +47,7 @@ In response, we can get:
 ##### dht.valueNotFound
 If we get `dht.valueNotFound`, the response will contain a list of nodes that are known to the node we requested and are as close as possible to the key we requested from the list of nodes known to it. In this case, we need to connect and add the received nodes to the list known to us. After that, from the list of all nodes known to us, select the closest, accessible and not yet polled, and make the same request to it. And so on until we try all the nodes in the range we have chosen or until we stop receiving new nodes.
 
-Let's analyze the response fields in more detail, the schemes used:
+Let's analyze the response fields in more detail, the schemas used:
 ```
 adnl.address.udp ip:int port:int = adnl.Address;
 adnl.addressList addrs:(vector adnl.Address) version:int reinit_date:int priority:int expire_at:int = adnl.AddressList;
