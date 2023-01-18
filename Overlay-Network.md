@@ -33,7 +33,7 @@ overlay.getRandomPeers peers:overlay.nodes = overlay.Nodes;
 ```
 `peers` - should contain the peers we know so we don't get them back, but since we don't know any yet, `peers.nodes` will be an empty array.
 
-Each request inside the overlay must be prefixed with the TL scheme:
+Each request inside the overlay must be prefixed with the TL schema:
 ```
 overlay.query overlay:int256 = True;
 ```
