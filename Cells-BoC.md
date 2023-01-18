@@ -61,53 +61,53 @@ And glue it into an array of bytes:
 
 [Serialization example](https://github.com/xssnick/tonutils-go/blob/3d9ee052689376061bf7e4a22037ff131183afad/tvm/cell/serialize.go#L205)
 
-#### Упаковка в BoC
-Упакуем ячейку из прошлой главы. Мы уже сериализовали ее в плоский массив байт длиной 14.
+#### Packing in BoC
+Let's pack the cell from the previous chapter. We have already serialized it into a flat 14 byte array.
 
-Строим заголовок согласно [схеме](https://github.com/ton-blockchain/ton/blob/24dc184a2ea67f9c47042b4104bbb4d82289fac1/crypto/tl/boc.tlb#L25).
+We build the title according to [schema](https://github.com/ton-blockchain/ton/blob/24dc184a2ea67f9c47042b4104bbb4d82289fac1/crypto/tl/boc.tlb#L25).
 
 ```
-b5ee9c72                      -> id tl-b структуры BoC
-01                            -> флаги и размер size:(## 3), в нашем случае флаги все 0, 
-                                 и количество байтов нужное для хранения количества ячеек - 1.
-                                 получаем - 0b0_0_0_00_001
-01                            -> кол-во байтов для хранения размера сериализованых ячеек
-03                            -> количество ячеек, 1 байт (определяется 3 битами size:(## 3), равный 3м.
-01                            -> количество корневых ячеек - 1
-00                            -> absent, всегда 0 (в текущих имплементациях)
-0e                            -> размер сериализованых ячеек, 1 байт (размер определен выше), равный 14
-00                            -> индекс корневой ячейки, размером 1 (определяется 3 битами size:(## 3) из заголовка), 
-                                 всегда 0
-0201c002010101ff0200060aaaaa  -> сериализованые ячейки
+b5ee9c72                      -> id tl-b of the BoC structure
+01                            -> flags and size:(## 3), in our case the flags are all 0,
+                                 and the number of bytes needed to store the number of cells is 1.
+                                 get - 0b0_0_0_00_001
+01                            -> number of bytes to store the size of the serialized cells
+03                            -> number of cells, 1 byte (defined by 3 bits size:(## 3), equal to 3.
+01                            -> number of root cells - 1
+00                            -> absent, always 0 (in current implementations)
+0e                            -> size of serialized cells, 1 byte (size defined above), equal to 14
+00                            -> root cell index, size 1 (determined by 3 size:(## 3) bits from header),
+                                 always 0
+0201c002010101ff0200060aaaaa  -> serialized cells
 ```
 
-Всё, что выше, склеим в массив байтов и получим:
-`b5ee9c7201010301000e000201c002010101ff0200060aaaaa` Это наш финальный BoC!
+We glue everything above into an array of bytes and get:
+`b5ee9c7201010301000e000201c002010101ff0200060aaaaa` This is our final BoC!
 
-Примеры реализации BoC: [Сериализация](https://github.com/xssnick/tonutils-go/blob/master/tvm/cell/serialize.go), [Десериализация](https://github.com/xssnick/tonutils-go/blob/master/tvm/cell/parse.go)
+BoC Implementation Examples: [Serialization](https://github.com/xssnick/tonutils-go/blob/master/tvm/cell/serialize.go), [Deserialization](https://github.com/xssnick/tonutils-go/blob/master/tvm/cell/parse.go)
 
-## Специальные ячейки
+## Special cells
 
-Ячейки делятся на два вида: обычные (Ordinary) и специальные. Большинство ячеек, с которыми работает поользователь, являются обычными и просто несут в себе информацию. Но для внутреннего функционала сети часто используются специальные ячейки, работа с которыми происходит по немного иному сценарию, зависящему от подтипа специальной ячейки. 
+Cells are divided into two types: ordinary and special. Most of the cells that the user works with are ordinary and simply carry information. But for the internal functionality of the network, special cells are often used, which work according to a slightly different scenario, depending on the subtype of the special cell.
 
-Тип специальной ячейки определяется первыми 8 битами ее данных и может быть одним из приведенных ниже:
+The type of a special cell is determined by the first 8 bits of its data and can be one of the following:
 ```
 0x01: PrunnedBranch
 0x02: Library
 0x03: MerkleProof
 0x04: MerkleUpdate
 ```
-В разделах далее мы разберем специальные типы подробнее.
+In the sections below, we will discuss special types in more detail.
 
 ### Merkle Proof
-Ячейка этого типа является деревом хэшей и несет в себе доказательство принадлежности части данных дерева ячеек к полному дереву, при этом проверяющий может не знать полное содержимое дерева, а знать только его хеш. 
+A cell of this type is a hash tree and carries a proof that a part of the cell tree data belongs to the full tree, while the verifier may not know the full contents of the tree, but only know its hash.
 
-Внутри себя ячейка несет корневой хеш объекта, например, блока и дерево хешей его веток в виде дочерней ячейки. Само внутреннее дерево повторяет по структуре оригинальный объект, пруфом которого оно является, но при этом, все ветки не являющиеся частью данных, которую нужно доказать, и не ведущие к ней - заменены на специальные ячейки типа `PrunnedBranch`, которые вместо данных - хранят их хеш. Таким образом, посчитав корневой хеш всего дерева, у нас должен получиться тот самый хеш из данных ячейки типа merkle proof, который должен совпасть с заранее известным нам хешом, например, блока. Такой подход позволяет нам доказать, например, наличие транзакции в блоке, при условии, что тот, кому мы доказываем это - знает хеш блока.
+Within itself, a cell carries the root hash of an object, for example, a block, and a hash tree of its branches as a child cell. The internal tree itself repeats the structure of the original object, the proof of which it is, but at the same time, all branches that are not part of the data that needs to be proved and do not lead to it are replaced by special cells of the `PrunnedBranch` type, which instead of data store them hash. Thus, having calculated the root hash of the entire tree, we should get the same hash from the cell data of the merkle proof type, which should match the hash known to us in advance, for example, of a block. This approach allows us to prove, for example, the existence of a transaction in a block, provided that the one to whom we prove this knows the hash of the block.
 
-##### Пример пруфа для getAccountState
-Объект является пруфом для структуры [ShardStateUnsplit](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L399). Но вместо всего блока - содержит только наш запрошенный аккаунт - `EQCVRJ-RqeZWcDqgTzzcxUIrChFYs0SyKGUvye9kGOuEWndQ`. Все ветки не связанные с ним и не ведущие к нему заменены на `Prunned`, а те что ведут к нему - являются обычными `Ordinary` ячейками и содержат реальные данные блока.
+##### Proof example for getAccountState
+The object is a proof for the structure [ShardStateUnsplit](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L399). But instead of the whole block - contains only our requested account - `EQCVRJ-RqeZWcDqgTzzcxUIrChFYs0SyKGUvye9kGOuEWndQ`. All branches that are not related to it and not leading to it are replaced with `Prunned`, and those that lead to it are `Ordinary` cells and contain the actual block data.
 
-Символом `*` помечены специальные ячейки, корневая имеет тип 0x03 - MerkleProof, остальные 0x01 - Pruned.
+The symbol `*` marks special cells, the root one has type 0x03 - MerkleProof, the rest 0x01 - Pruned.
 <details>
   <summary><b>Развернуть пример</b></summary>
   
