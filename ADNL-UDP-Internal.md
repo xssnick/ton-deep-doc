@@ -8,7 +8,7 @@ In the UDP version of ADNL, the connection is established simultaneously with th
 
 Within one connection, several channels can be opened, they are needed for data isolation. Each channel has its own ID and encryption key. But usually, for basic interaction, only one channel is used, which is created along with the first request.
 
-### Package arrangement and information exchange
+### Packet arrangement and information exchange
 
 ##### First exchange of data
 Let's analyze the initialization of the connection with the DHT node and obtaining a signed list of its addresses in order to understand how the data exchange works.
