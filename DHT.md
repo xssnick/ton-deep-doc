@@ -89,51 +89,51 @@ dht.valueFound value:dht.Value = dht.ValueResult;
 ```
 First, let's analyze `key:dht.keyDescription`, it is a complete description of the key, the key itself, information about who and how can update the value.
 
-* `key:dht.key` - ключ, должен полностью совпадать с тем, от чего мы брали айди ключа для поиска. 
-* `id:PublicKey` - публичный ключ владельца записи. 
-* `update_rule:dht.UpdateRule` - правило обновления записи
-* * `dht.updateRule.signature` - обновлять запись может только владелец приватного ключа, `signature` как ключа, так и значения должна быть валидной
-* * `dht.updateRule.anybody` - обновлять запись могут все, `signature` пуста и не проверяется
-* * `dht.updateRule.overlayNodes` - обновлять ключ могут только ноды из одного оверлея (шарды воркчеина)
+* `key:dht.key` - the key must completely match the one from which we took the key ID for the search. 
+* `id:PublicKey` - the public key of the record owner. 
+* `update_rule:dht.UpdateRule` - record update rule
+* * `dht.updateRule.signature` - only the owner of the private key can update the record, the `signature` of both the key and the value must be valid
+* * `dht.updateRule.anybody` - everyone can update the record, `signature` is empty and not checked
+* * `dht.updateRule.overlayNodes` - only nodes from the same overlay (workchain shard) can update the key
 
 ###### dht.updateRule.signature
-После чтения описания ключа, мы действуем в зависимости от `updateRule`, для кейса с поиском ADNL адреса тип всегда - `dht.updateRule.signature`. Проверяем подпись ключа тем же способом, что и в прошлый раз, делаем подпись пустым массивом байтов, сериализуем и проверяем. После - повторяем то же самое для значения, т.е для всего объекта `dht.value` (подпись ключа при этом возвращаем на место).
+After reading the description of the key, we act depending on the `updateRule`, for the ADNL lookup case the type is always `dht.updateRule.signature`. We check the key signature in the same way as last time, make the signature an empty byte array, serialize and check. After - we repeat the same for the value, i.e. for the entire `dht.value` object (while returning the key signature to its place).
 
-[[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/udp-rldp-2/adnl/dht/client.go#L331)
+[[Implementation example]](https://github.com/xssnick/tonutils-go/blob/udp-rldp-2/adnl/dht/client.go#L331)
 
 ###### dht.updateRule.overlayNodes
-Используется для ключей, содержащих информацию о других нодах-шардах воркчеина в сети, в значении всегда имеет TL структуру `overlay.nodes`. Подпись значения должна быть пустой.
+Used for keys containing information about other nodes-shards of the workchain in the network, the value always has the TL structure `overlay.nodes`. The value label must be empty.
 
 ```
 overlay.node id:PublicKey overlay:int256 version:int signature:bytes = overlay.Node;
 overlay.nodes nodes:(vector overlay.node) = overlay.Nodes;
 ```
-Для проверки валидности мы должны проверить все `nodes` и для каждой проверить `signature` на соответствие ее `id`, сериализовав TL структуру:
+To check for validity, we must check all `nodes` and for each check `signature` against its `id` by serializing the TL structure:
 ```
 overlay.node.toSign id:adnl.id.short overlay:int256 version:int = overlay.node.ToSign;
 ```
-Как мы видим, id надо заменить на adnl.id.short, который является айди ключа `id` из оригинальной структуры. После сериализации - сверяем подпись с данными.
+As we can see, id should be replaced with adnl.id.short, which is the ID of the `id` key from the original structure. After serialization - we check the signature with the data.
 
-В результате мы получаем валидный список нод, которые способны отдать нам информацию о нужной нам шарде воркчеина.
+As a result, we get a valid list of nodes that are able to give us information about the workchain shard we need.
 ###### dht.updateRule.anybody
-Подписей нет, обновлять может любой, но реального использования я не видел.
+There are no signatures, anyone can update, but I have not seen real use.
 
-##### Использование значения
+##### Using a value
 
-Когда все верифицировано и время жизни значения `ttl:int` не просрочено, мы можем начинать работать с самим значением, т.е `value:bytes`. Для ADNL адреса там внутри должна быть структура `adnl.addressList`. В ней будут ip адреса и порты серверов, соответствующих запрошенному ADNL адресу. В нашем случае там скорее всего будет 1 адрес RLDP-HTTP сервиса `foundation.ton`. В качестве ключа сервера мы будем использовать публичный ключ `id:PublicKey` из информации о ключе DHT.
+When everything is verified and the `ttl:int` value has not expired, we can start working with the value itself, i.e. `value:bytes`. For an ADNL address, there must be an `adnl.addressList` structure inside. It will contain ip addresses and ports of servers corresponding to the requested ADNL address. In our case, there will most likely be 1 RLDP-HTTP address of the `foundation.ton` service. We will use the public key `id:PublicKey` from the DHT key information as the server key.
 
-После установки соединения - мы можем запрашивать страницы сайта, используя протокол RLDP. Задача DHT на этом этапе выполнена.
+After the connection is established, we can request the pages of the site using the RLDP protocol. The task of DHT at this stage is completed.
 
 
-### Поиск нод хранящих состояние блокчеина
+### Search for nodes that store the state of the blockchain
 
-DHT так же используется для поиска информации о нодах, хранящих данные воркчеинов и их шардов. Процесс такой же, как и при поиске любого ключа, разница лишь в самой сериализации ключа и валидации ответа, эти моменты мы разберем в этом разделе.
+DHT is also used to find information about the nodes that store the data of workchains and their shards. The process is the same as when searching for any key, the only difference is in the serialization of the key itself and the validation of the response, we will analyze these points in this section.
 
-Для того, чтобы получить данные, например, мастерчеина и его шарды, нам нужно заполнить TL структуру:
+In order to get data, for example, the masterchain and its shards, we need to fill in the TL structure:
 ```
 tonNode.shardPublicOverlayId workchain:int shard:long zero_state_file_hash:int256 = tonNode.ShardPublicOverlayId;
 ```
-Где `workchain` в случае мастерчеина будет равен -1, его shard будет равен -922337203685477580, и zero state - хэш нулевого стейта чеина (file_hash), его, как и другие данные, можно взять в глобальном конфиге сети, в поле `"validator"`
+Where `workchain` in the case of a masterchain will be equal to -1, its shard will be equal to -922337203685477580, and zero state is the hash of the zero state of the chain (file_hash), it, like other data, can be taken in the global network config, in the `"validator" field "`
 ```json
 "zero_state": {
   "workchain": -1,
@@ -143,12 +143,12 @@ tonNode.shardPublicOverlayId workchain:int shard:long zero_state_file_hash:int25
   "file_hash": "XplPz01CXAps5qeSWUtxcyBfdAo5zVb1N979KLSKD24="
 }
 ```
-После того, как мы заполнили `tonNode.shardPublicOverlayId`, мы сериализуем его и получаем из него айди ключа, путем хеширования (как и всегда).
+After we have filled in `tonNode.shardPublicOverlayId`, we serialize it and get the key id from it by hashing (as always).
 
-Полученный айди ключа нам нужно использовать, как `name` для заполнения структуры `pub.overlay name:bytes = PublicKey`, завернув его в `bytes`. Далее сериализуем его, и получаем айди ключа теперь уже из него. 
+We need to use the resulting key ID as `name` to fill in the `pub.overlay name:bytes = PublicKey` structure, wrapping it in `bytes`. Next, we serialize it, and we get the key ID now from it. 
 
-Полученный айди будет ключом для использования в `dht.findValue`, а в качестве `name` будет слово `nodes`. Повторяем основной процесс из предыдущего раздела, все как и в прошлый раз, но `updateRule` будет [dht.updateRule.overlayNodes](#dhtupdateruleoverlaynodes).
+The resulting id will be the key to use in `dht.findValue`, and the `name` will be the word `nodes`. We repeat the main process from the previous section, everything is the same as last time, but `updateRule` will be [dht.updateRule.overlayNodes](#dhtupdateruleoverlaynodes).
 
-После валидации - мы получим публичные ключи (`id`) нод имеющих информацию о нашем воркчеине и шарде. Чтобы получить ADNL адреса нод - нам нужно сделать из ключей айди (методом хеширования) и для каждого из ADNL адресов повторить процедуру описанную выше, как и с ADNL адресом домена `foundation.ton`.
+After validation - we will get the public keys (`id`) of the nodes that have information about our workchain and shard. To get the ADNL addresses of the nodes, we need to make IDs from the keys (using the hashing method) and repeat the procedure described above for each of the ADNL addresses, as with the ADNL address of the `foundation.ton` domain.
 
-В результате мы получим адреса нод, у которых, если захотим, сможем узнать адреса других нод этого чеина c помощью [overlay.getRandomPeers](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L237). Также мы сможем получать от этих нод всю информацию о блоках. 
+As a result, we will get the addresses of the nodes from which, if we want, we can find out the addresses of other nodes of this chain using [overlay.getRandomPeers](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L237). We will also be able to receive all the information about the blocks from these nodes.
