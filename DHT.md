@@ -15,39 +15,39 @@ the same algorithm, find a node that can give data on this key.
 ### Finding a value by key
 Let's look at an example with a search for a key, [connect to any DHT node and establish a connection via ADNL UDP](/ADNL-UDP-Internal.md#устройство-пакетов-и-обмен-информацией).
 
-Например, мы хотим найти адрес и данные для подключения к RLDP ноде ТОН сайта foundation.ton. Допустим, мы уже получили ADNL адрес этого сайта, выполнив Get метод DNS контракта. ADNL адресом в hex представлении будет `516618cf6cbe9004f6883e742c9a2e3ca53ed02e3e36f4cef62a98ee1e449174`. Теперь наша задача найти ip, порт и публичный ключ ноды, имеющей этот адрес.
+For example, we want to find the address and data for connecting to the RLDP node TON of the foundation.ton site. Let's say we have already obtained the ADNL address of this site by executing the Get method of the DNS contract. The ADNL address in hex representation is `516618cf6cbe9004f6883e742c9a2e3ca53ed02e3e36f4cef62a98ee1e449174`. Now our task is to find the ip, port and public key of the node that has this address.
 
-Чтобы это сделать, нам нужно получить ID DHT ключа, сначала соберем сам DHT ключ:
+To do this, we need to get the ID of the DHT key, first we will collect the DHT key itself:
 ```
 dht.key id:int256 name:bytes idx:int = dht.Key
 ```
-`name` - это тип ключа, для ADNL адресов используется слово `address`, а, например, для поиска нод шардчеина - `nodes`. Но типом ключа может быть любой массив байтов, зависит от искомого значения.
+`name` is the type of key, for ADNL addresses the word `address` is used, and, for example, to search for shardchain nodes - `nodes`. But the key type can be any array of bytes, depending on the value you are looking for.
 
-Заполнив эту схему, получим:
+Filling in this diagram, we get:
 ```
 8fde67f6                                                           -- TL ID dht.key
-516618cf6cbe9004f6883e742c9a2e3ca53ed02e3e36f4cef62a98ee1e449174   -- наш искомый ADNL адрес
-07 61646472657373                                                  -- тип ключа, слово "address" в виде массива bytes
-00000000                                                           -- индекс 0 т.к ключ всего 1
+516618cf6cbe9004f6883e742c9a2e3ca53ed02e3e36f4cef62a98ee1e449174   -- our searched ADNL address
+07 61646472657373                                                  -- key type, the word "address" as an array of bytes
+00000000                                                           -- index 0 because there is only 1 key
 ```
-Далее - получим айди ключа, sha256 хеш от сериализованных выше байтов. Это будет `b30af0538916421b46df4ce580bf3a29316831e0c3323a7f156df0236c5b2f75`
+Next - get the key ID, sha256 hash from the bytes serialized above. It will be `b30af0538916421b46df4ce580bf3a29316831e0c3323a7f156df0236c5b2f75`
 
-Теперь мы можем приступить к поиску. Для этого нам нужно выполнить запрос, имеющий [схему](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L197):
+Now we can start searching. To do this, we need to execute a query that has [schema](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L197):
 ```
 dht.findValue key:int256 k:int = dht.ValueResult
 ```
-`key` - это айди нашего DHT ключа, а `k` - это "ширина" поиска, чем она меньше тем точнее, но меньше потенциальных нод для опроса. Максимальное k для нод в тоне равно 10, мы можем использовать 6.
+`key` is the id of our DHT key, and `k` is the "width" of the search, the smaller it is, the more accurate, but fewer potential nodes for polling. The maximum k for nodes in a TON is 10, we can use 6.
 
-Заполним эту структуру, сериализуем и отправим запрос, используя схему `adnl.message.query`. [Подробнее об этом можно узнать в другой статье](/ADNL-UDP-Internal.md#устройство-пакетов-и-обмен-информацией).
+Let's populate this structure, serialize and send the request using the `adnl.message.query` scheme. [You can read more about this in another article.](/ADNL-UDP-Internal.md#устройство-пакетов-и-обмен-информацией).
 
-В ответ мы можем получить:
-* `dht.valueNotFound` - если значение не найдено. 
-* `dht.valueFound` - если значение найдено на этой ноде.
+In response, we can get:
+* `dht.valueNotFound` - if the value is not found.
+* `dht.valueFound` - if the value is found on this node.
 
 ##### dht.valueNotFound
-Если мы получили `dht.valueNotFound`, ответ будет содержать список нод, которые известны запрошенной нами ноде и находятся максимально близко запрошенному нами ключу из списка известных ей нод. В этом случае нам нужно подключиться и добавить полученные ноды к списку известных нам. После этого, из списка всех известных нам нод выбрать самую близкую, доступную и еще не опрошенную, и сделать так же же запрос к ней. И так пока мы не попробуем все ноды в выбранном нами диапозоне или пока мы не перестанем получать новые ноды.
+If we get `dht.valueNotFound`, the response will contain a list of nodes that are known to the node we requested and are as close as possible to the key we requested from the list of nodes known to it. In this case, we need to connect and add the received nodes to the list known to us. After that, from the list of all nodes known to us, select the closest, accessible and not yet polled, and make the same request to it. And so on until we try all the nodes in the range we have chosen or until we stop receiving new nodes.
 
-Разберем поля ответа подробнее, используемые схемы:
+Let's analyze the response fields in more detail, the schemes used:
 ```
 adnl.address.udp ip:int port:int = adnl.Address;
 adnl.addressList addrs:(vector adnl.Address) version:int reinit_date:int priority:int expire_at:int = adnl.AddressList;
@@ -57,20 +57,20 @@ dht.nodes nodes:(vector dht.node) = dht.Nodes;
 
 dht.valueNotFound nodes:dht.nodes = dht.ValueResult;
 ```
-`dht.nodes -> nodes` -  список DHT нод (массив).
+`dht.nodes -> nodes` -  list of DHT nodes (array).
 
-У каждой ноды есть `id`, который является ее публичным ключом, обычно [pub.ed25519](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L47), используется, как ключ сервера для подключения к ноде по ADNL. Также, каждая нода имеет список адресов `addr_list:adnl.addressList`, версию и подпись.
+Each node has an `id` which is its public key, usually [pub.ed25519](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L47), used as a server key to connect to the node via ADNL. Also, each node has a list of addresses `addr_list:adnl.addressList`, version and signature.
 
-Нам нужно обязательно проверять подпись каждой ноды, для этого читаем значение `signature` и обнуляем поле (делаем пустым массивом bytes). После - сериализуем TL структуру `dht.node` с обнуленной подписью и проверяем `signature`, которая была до обнуления. Проверяем на полученных сериализованых байтах, используя ключ из `id`. [[Пример реализации]](https://github.com/xssnick/tonutils-go/blob/udp-rldp-2/adnl/dht/client.go#L91)
+We need to check the signature of each node, for this we read the value of `signature` and set the field to zero (we make it an empty bytes array). After - we serialize the TL structure `dht.node` with the nulled signature and check the `signature` that was before nulling. We check on the received serialized bytes, using the key from `id`. [[Implementation example]](https://github.com/xssnick/tonutils-go/blob/udp-rldp-2/adnl/dht/client.go#L91)
 
-Из списка `addrs:(vector adnl.Address)` берем адрес и пробуем установить ADNL UDP соединение, в качестве ключа сервера используем `id`, который является публичным ключом.
+From the list `addrs:(vector adnl.Address)` we take the address and try to establish an ADNL UDP connection, as the server key we use `id`, which is the public key.
 
-Чтобы узнать "расстояние" до этой ноды - нам нужно взять [айди ключа](/ADNL-TCP-Liteserver.md#получение-айди-ключа) от ключа из поля `id` и проверить расстояние операцией XOR от айди ключа ноды и искомого ключа. Если расстояние достаточно небольшое - мы можем делать тот же запрос на эту ноду. И так далее, пока не найдем значение или не будет больше новых нод.
+To find out the "distance" to this node - we need to take [key id](/ADNL-TCP-Liteserver.md#получение-айди-ключа) from the key from the `id` field and check the distance by the XOR operation from the node's key id and the desired key. If the distance is small enough, we can make the same request to this node. And so on, until we find a value or there are no more new nodes.
 
 ##### dht.valueFound
-Ответ будет содержать само значение, полную информацию по ключу и, опционально, подпись. 
+The response will contain the value itself, the full key information, and optionally a signature.
 
-Разберем поля ответа подробнее, используемые схемы:
+Let's analyze the response fields in more detail, the schemes used:
 ```
 adnl.address.udp ip:int port:int = adnl.Address;
 adnl.addressList addrs:(vector adnl.Address) version:int reinit_date:int priority:int expire_at:int = adnl.AddressList;
@@ -87,7 +87,7 @@ dht.value key:dht.keyDescription value:bytes ttl:int signature:bytes = dht.Value
 
 dht.valueFound value:dht.Value = dht.ValueResult;
 ```
-Для начала разберем `key:dht.keyDescription`, он представляет из себя полное описание ключа, сам ключ, информацию о том, кто и как может обновлять значение.
+First, let's analyze `key:dht.keyDescription`, it is a complete description of the key, the key itself, information about who and how can update the value.
 
 * `key:dht.key` - ключ, должен полностью совпадать с тем, от чего мы брали айди ключа для поиска. 
 * `id:PublicKey` - публичный ключ владельца записи. 
