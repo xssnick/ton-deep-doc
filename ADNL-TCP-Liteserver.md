@@ -7,7 +7,7 @@ Now we will analyze ADNL running over TCP and learn how to interact with light s
 In the TCP version of ADNL, network nodes use public keys ed25519 as addresses and establish a connection using a shared key obtained using the Elliptic Curve Diffie-Hellman procedure - ECDH.
 
 
-### Package Structure
+### Packet Structure
 Each ADNL TCP packet, except for the handshake, has the following structure:
 * 4 bytes of packet size in little endian (N)
 * 32 bytes nonce [[?]](## "Random bytes to protect against checksum attacks")
@@ -15,7 +15,7 @@ Each ADNL TCP packet, except for the handshake, has the following structure:
 * 32 bytes SHA256 checksum from nonce and payload
 
 The entire packet, including the size, is **AES-CTR** encrypted.
-After decryption, it is necessary to check whether the checksum matches the data, to check, you just need to calculate the checksum yourself and compare the result with what we have in the package.
+After decryption, it is necessary to check whether the checksum matches the data, to check, you just need to calculate the checksum yourself and compare the result with what we have in the packet.
 
 The handshake packet is an exception, it is transmitted in a partially clear form and is described in the next chapter.
 
@@ -56,9 +56,9 @@ After we have established a connection, we can start receiving information; the 
 ### Ping&Pong
 It is optimal to send a ping packet about once every 5 seconds. This is necessary to maintain the connection while no data is being exchanged, otherwise the server will terminate the connection.
 
-The ping packet, like all the others, is built according to the standard scheme described [above](#package-structure), and carries the request ID and ping ID as payload data.
+The ping packet, like all the others, is built according to the standard schema described [above](#package-structure), and carries the request ID and ping ID as payload data.
 
-Let's find the desired scheme for the ping request [here](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L35) and calculate the scheme id as 
+Let's find the desired schema for the ping request [here](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L35) and calculate the scheme id as 
 `crc32_IEEEE("tcp.ping random_id:long = tcp.Pong")`. When converted to little endian bytes, we get **9a2b084d**.
 
 Thus, our ADNL ping packet will look like this:
@@ -461,7 +461,7 @@ Now, having studied all the information, you can call and process responses from
 #### Getting ID key
 The key id is the SHA256 hash of the serialized TL schema.
 
-The most commonly used TL schemes are:
+The most commonly used TL schemas are:
 ```
 pub.ed25519 key:int256 = PublicKey -- ID c6b41348
 pub.aes key:int256 = PublicKey     -- ID d4adbc2d
