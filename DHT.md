@@ -1,19 +1,19 @@
 # DHT
 
-DHT - Расшифровывается, как Distributed Hash Table, и по сути представляет из себя распределенную базу данных ключ-значение, 
-где каждый участник сети может что-то сохранить, например, информацию о себе.
+DHT stands for Distributed Hash Table and is essentially a distributed key-value database,
+where each member of the network can store something, for example, information about themselves.
 
-Реализация DHT в TON по своей сути похожа на реализацию [Kademlia](https://codethechange.stanford.edu/guides/guide_kademlia.html), который используется в IPFS.
-Любой участник сети может запустить DHT ноду, сгенерировать ключи и хранить данные. 
-Для этого ему нужно сгенерировать случайный айди и сообщить о себе другим нодам.
+The implementation of DHT in TON is inherently similar to the implementation of [Kademlia](https://codethechange.stanford.edu/guides/guide_kademlia.html), which is used in IPFS.
+Any network member can run a DHT node, generate keys and store data.
+To do this, he needs to generate a random ID and inform other nodes about himself.
 
-Для определения, на какой ноде сохранить данные, используется алгоритм определения "расстояния" между нодой и ключом. 
-Алгоритм прост: берем айди ноды и айди ключа, производим операцию XOR . Чем меньше получилось значение, тем ближе нода.
-Задача в том, чтобы сохранить ключ на максимально близким к ключу нодам, чтобы другие участники сети могли, используя 
-тот же алгоритм, найти ноду, которая сможет отдать данные по этому ключу.
+To determine which node to store the data on, an algorithm is used to determine the "distance" between the node and the key.
+The algorithm is simple: we take the ID of the node and the ID of the key, we perform the XOR operation. The smaller the value, the closer the node.
+The task is to store the key on the nodes as close as possible to the key, so that other network participants can, using
+the same algorithm, find a node that can give data on this key.
 
-### Поиск значения по ключу
-Разберем пример с поиском ключа, [подключимся к любой DHT ноде и установим соединение по ADNL UDP](/ADNL-UDP-Internal.md#устройство-пакетов-и-обмен-информацией).
+### Finding a value by key
+Let's look at an example with a search for a key, [connect to any DHT node and establish a connection via ADNL UDP](/ADNL-UDP-Internal.md#устройство-пакетов-и-обмен-информацией).
 
 Например, мы хотим найти адрес и данные для подключения к RLDP ноде ТОН сайта foundation.ton. Допустим, мы уже получили ADNL адрес этого сайта, выполнив Get метод DNS контракта. ADNL адресом в hex представлении будет `516618cf6cbe9004f6883e742c9a2e3ca53ed02e3e36f4cef62a98ee1e449174`. Теперь наша задача найти ip, порт и публичный ключ ноды, имеющей этот адрес.
 
