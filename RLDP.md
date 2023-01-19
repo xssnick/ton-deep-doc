@@ -1,14 +1,14 @@
 ## RLDP
 
-RLDP - Reliable Large Datagram Protocol - это протокол, работающий поверх ADNL UDP, который служит для передачи больших данных и 
-включает в себя Forward Error Correction (FEC) алгоритмы для замещения подтверждений получения пакетов другой стороной. Это позволяет более эффективно, хоть и с бОльшим потреблением трафика передавать данные между компонентами сети. 
+RLDP - Reliable Large Datagram Protocol - is a protocol that runs on top of ADNL UDP, which is used to transfer large data and
+includes Forward Error Correction (FEC) algorithms for replacing acknowledgments of receipt of packets by the other side. This makes it possible to transfer data between network components more efficiently, albeit with greater traffic consumption.
 
-RLDP используется практически повсеместно в инфраструктуре TON. Например, для скачивания блоков с других нод и передачи им данных,
-для запросов к TON сайтам и в TON Storage.
+RLDP is used practically in TON infrastructure. For example, to download blocks with other nodes and transfer data to them,
+to travel to TON websites and TON Storage.
 
-#### Протокол
+#### Protocol
 
-Для обмена данными RLDP использует следующие TL структуры:
+RLDP uses the following TL structures for data exchange:
 ```
 fec.raptorQ data_size:int symbol_size:int symbols_count:int = fec.Type;
 fec.roundRobin data_size:int symbol_size:int symbols_count:int = fec.Type;
@@ -22,30 +22,30 @@ rldp.message id:int256 data:bytes = rldp.Message;
 rldp.query query_id:int256 max_answer_size:long timeout:int data:bytes = rldp.Message;
 rldp.answer query_id:int256 data:bytes = rldp.Message;
 ```
-Сериализованная структура оборачивается в TL схему `adnl.message.custom` и отправляется по ADNL UDP. Для передачи больших данных используются трансферы, генерируется случайный `transfer_id`, а сами данные обрабатываются FEC алгоритмом. Полученные кусочки заворачиваются в структуру `rldp.messagePart` и отправляются получателю до тех пор пока получатель не отправит нам `rldp.complete`. Когда получатель собрал кусочки `rldp.messagePart` необходимые для сборки полного сообщения, он соединяет их все вместе, декодирует с помощью FEC и полученный массив байтов десериализует в одну из стркутур `rldp.query` или `rldp.answer`, в зависимости от типа (tl id префикса).
+The serialized structure is wrapped in the `adnl.message.custom` TL schema and sent over ADNL UDP. Transfers are used to transfer big data, a random `transfer_id` is generated, and the data itself is processed by the FEC algorithm. The resulting pieces are wrapped in a `rldp.messagePart` structure and sent to the recipient until the recipient sends us `rldp.complete`. When the receiver has collected the pieces of `rldp.messagePart` necessary to assemble a complete message, it joins them all together, decodes using FEC and deserializes the resulting byte array into one of the `rldp.query` or `rldp.answer` structures, depending on the type (tl prefix id).
 
 ### FEC
 
-Допустимые Forward Error Correction алгоритмы для использования с RLDP - это RoundRobin, Online, и RaptorQ. 
-Сейчас для обмена данными используется именно [RaptorQ](https://www.qualcomm.com/media/documents/files/raptorq-technical-overview.pdf).
+Valid Forward Error Correction algorithms for use with RLDP are RoundRobin, Online, and RaptorQ. 
+Now for data encoding [RaptorQ](https://www.qualcomm.com/media/documents/files/raptorq-technical-overview.pdf) is used.
 
 ##### RaptorQ
-Суть RaptorQ в том, что данные делятся на так называемые символы - блоки, одинакового, заранее определенного размера. 
+The essence of RaptorQ is that the data is divided into so-called characters - blocks of the same, predetermined size.
 
-Из блоков создаются матрицы, и к ним применяются дискретные математические операции. Это позволяет создать практически бесконечное количество символов 
-из одних и тех же данных. Все символы смешиваются, и, благодаря этому, получается восстановить потерянные пакеты без запроса дополнительных данных от сервера, при этом используя меньшее количество пакетов, чем это было бы, если бы мы отправляли одни и те же кусочки по кругу.
+Matrices are created from blocks, and discrete mathematical operations are applied to them. This allows you to create an almost infinite number of characters.
+from the same data. All characters are mixed, and thanks to this, it is possible to recover lost packets without requesting additional data from the server, while using fewer packets than it would be if we sent the same pieces in a circle.
 
-Сгенерированные символы отправляются получателю, пока он не скажет, что все данные получены и восстановлены путем применения тех же дискретных операций.
+The generated characters are sent to the recipient until it says that all data has been received and restored by applying the same discrete operations.
 
-[[Моя реализация RaptorQ на Golang]](https://github.com/xssnick/tonutils-go/tree/udp-rldp-2/adnl/rldp/raptorq)
+[[My implementation of RaptorQ in Golang]](https://github.com/xssnick/tonutils-go/tree/udp-rldp-2/adnl/rldp/raptorq)
 
 ### RLDP-HTTP
 
-Для взаимодействия с сайтами на TON используется HTTP, обернутый в RLDP. Хостер размещает свой сайт на любом HTTP вебсервере и рядом поднимает rldp-http-proxy. Все запросы из сети TON приходят по протоколу RLDP в прокси, а прокси уже пересобирает запрос в обычный HTTP и вызывает вебсервер локально. 
+To interact with sites on TON, HTTP wrapped in RLDP is used. The hoster hosts his site on any HTTP webserver and raises rldp-http-proxy next to it. All requests from the TON network come via the RLDP protocol to the proxy, and the proxy already reassembles the request into regular HTTP and calls the web server locally.
 
-Пользователь на своей стороне локально (в идеале) поднимает прокси, например [Tonutils Proxy](https://github.com/xssnick/TonUtils-Proxy), и пользуется сайтами `.ton`, весь трафик заворачивается в обратном порядке, запросы идут в локальный прокси, а он отправляет их по RLDP на удаленный TON сайт.
+The user on his side locally (ideally) raises the proxy, for example, [Tonutils Proxy](https://github.com/xssnick/TonUtils-Proxy), and use the sites `.ton`, all traffic is wrapped in the reverse order, requests go to the local proxy, and it sends them via RLDP to the remote TON site.
 
-HTTP внутри RLDP реализован с использованием TL структур:
+HTTP inside RLDP is implemented using TL structures:
 ```
 http.header name:string value:string = http.Header;
 http.payloadPart data:bytes trailer:(vector http.header) last:Bool = http.PayloadPart;
@@ -54,7 +54,7 @@ http.response http_version:string status_code:int reason:string headers:(vector 
 http.request id:int256 method:string url:string http_version:string headers:(vector http.header) = http.Response;
 http.getNextPayloadPart id:int256 seqno:int max_chunk_size:int = http.PayloadPart;
 ```
-Это не чистый HTTP в текстовом виде, все завернуто в бинарный TL и разворачивается обратно для отправки в вебсервер или браузер самим прокси.
+This is not pure HTTP in text form, everything is wrapped in binary TL and unwrapped back to be sent to the web server or browser by the proxy itself.
 
 Схема работы выглядит следующим образом:
 * Клиент отправляет запрос `http.request`
