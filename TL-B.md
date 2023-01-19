@@ -1,5 +1,5 @@
 # TL-B
-In this section, complex and non-obvious TL-B structures are analyzed separately. To get started, I recommend reading the [base documentation](https://github.com/tonstack/ton-docs/tree/main/TL-B)
+In this section, complex and non-obvious TL-B structures are analyzed separately. To get started, I recommend reading the [base documentation](https://github.com/tonstack/ton-docs/tree/main/TL-B).
 
 ### Unary
 Unary is commonly used for dynamic sizing in structures such as [hml_short](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L29).
@@ -107,104 +107,103 @@ Let's fill the structure variables with known values, we get:
   }
 ```
 
-##### Начинаем парсинг веток 
-Согласно нашей схеме - это структура `Hashmap 8 uint16`. Заполним ее известными значениями, получим:
+##### Start parsing branches
+According to our schema, this is the `Hashmap 8 uint16` structure. Let's fill it with known values, we get:
 ```
 hm_edge#_ {n:#} {X:Type} {l:#} {m:#} label:(HmLabel ~l 8) 
           {8 = (~m) + l} node:(HashmapNode m uint16) = Hashmap 8 uint16;
 ```
 
-Как мы видим, появились условные переменные `{l:#}` и `{m:#}`, значения которых нам не известны. Так же, после чтения `label`, `n` у нас участвует в уравнении `{n = (~m) + l}`, в данном случае мы можем вычислить `l` и `m`, об этом нам говорит знак `~`.
+As we can see, conditional variables `{l:#}` and `{m:#}` have appeared, the values of which are unknown to us. Also, after reading the `label`, `n` is involved in the equation `{n = (~m) + l}`, in this case we can calculate `l` and `m`, the sign ` tells us about this ~`.
 
-Для определения значения `l` нам нужно загрузить `label:(HmLabel ~l uint16)`. `HmLabel` имеет 3 варианта структуры:
+To determine the value of `l` we need to load `label:(HmLabel ~l uint16)`. `HmLabel` has 3 structure options:
 ```
 hml_short$0 {m:#} {n:#} len:(Unary ~n) {n <= m} s:(n * Bit) = HmLabel ~n m;
 hml_long$10 {m:#} n:(#<= m) s:(n * Bit) = HmLabel ~n m;
 hml_same$11 {m:#} v:Bit n:(#<= m) = HmLabel ~n m;
 ```
-Вариант определяется по префиксу. В нашей корневой, на данный момент, ячейка 2 нулевых бита (`2[00]`). У нас только 1 вариант, который имеет префикс, начинающийся с 0. Получается перед нами `hml_short$0`.
+The option is determined by the prefix. In our root, at the moment, the cell has 2 zero bits (`2[00]`). We have only 1 option, which has a prefix starting with 0. It turns out we have `hml_short$0`.
 
-Заполним `hml_short` известными значениями:
+Fill `hml_short` with known values:
 ```
 hml_short$0 {m:#} {n:#} len:(Unary ~n) {n <= 8} s:(n * Bit) = HmLabel ~n 8
 ```
+We don't know `n`, but since it has a `~` character, we can calculate it. To do this, load `len:(Unary ~n)`, [[More about Unary]](#unary).
+In our case, we had `2[00]`, after defining the type `HmLabel` we have 1 bit out of two left, we load it and see that this is 0, which means our option is `unary_zero$0`. It turns out n from `HmLabel` is zero.
 
-Нам не известен `n`, но так как он имеет символ `~`, мы можем его вычислить. Для этого загружаем `len:(Unary ~n)`, [[Подробнее про Unary]](#unary).
-В нашем случае у нас было `2[00]`, после опеределения типа `HmLabel` у нас остался 1 бит из двух, загружаем его и видим, что это 0, значит наш вариант - это `unary_zero$0`. Получается n из `HmLabel` равен нулю.
-
-Дополним `hml_short` посчитанным значением n:
+Complete `hml_short` with the calculated value n:
 ```
 hml_short$0 {m:#} {n:#} len:0 {n <= 8} s:(0 * Bit) = HmLabel 0 8
 ```
-Получается у нас пустой `HmLabel`, s = 0, соответственно загружать нечего.
+It turns out we have an empty `HmLabel`, s = 0, so there is nothing to download.
 
-Возвращаемся еще выше и дополняем нашу структуру посчитанным значением `l`:
+We go back even higher and supplement our structure with the calculated value of `l`:
 ```
 hm_edge#_ {n:#} {X:Type} {l:0} {m:#} label:(HmLabel 0 8) 
           {8 = (~m) + 0} node:(HashmapNode m uint16) = Hashmap 8 uint16;
 ```
-Теперь, когда мы посчитали `l`, мы можем посчитать и `m`, используя уравнение `n = (~m) + 0`, т.е `m = n - 0`, m = n = 8.
+Now when we have calculated `l`, we can also calculate `m` using the equation `n = (~m) + 0`, i.e. `m = n - 0`, m = n = 8.
 
-Мы определили все неизвестные и теперь можем загружать `node:(HashmapNode 8 uint16)`. HashmapNode у нас имеет варианты:
+We have determined all unknowns and can now load `node:(HashmapNode 8 uint16)`. HashmapNode we have options:
 ```
 hmn_leaf#_ {X:Type} value:X = HashmapNode 0 X;
 hmn_fork#_ {n:#} {X:Type} left:^(Hashmap n X) 
            right:^(Hashmap n X) = HashmapNode (n + 1) X;
 ```
-В данном случае вариант мы определяем не по префиксу, а по параметру, если n = 0, то у нас `hmn_leaf`, иначе `hmn_fork`. В нашем случае n = 8, у нас `hmn_fork`. Берем его и заполняем известные значения:
+In this case, we determine the option not by the prefix, but by the parameter, if n = 0, then we have `hmn_leaf`, otherwise `hmn_fork`. In our case, n = 8, we have `hmn_fork`. We take it and fill in the known values:
 ```
 hmn_fork#_ {n:#} {X:uint16} left:^(Hashmap n uint16) 
            right:^(Hashmap n uint16) = HashmapNode (n + 1) uint16;
 ```
-Здесь все не так очевидно, у нас `HashmapNode (n + 1) uint16`. Это значит,  что результирующий n должен быть равен нашему параметру, т.е 8. Чтобы вычислить локальный n, нужно посчитать его: `n = (n_local + 1)` -> `n_local = (n - 1)` -> `n_local = (8 - 1)` -> `n_local = 7`.
+Everything is not so obvious here, we have `HashmapNode (n + 1) uint16`. This means that the resulting n must be equal to our parameter, i.e. 8. To calculate the local n, we need to calculate it: `n = (n_local + 1)` -> `n_local = (n - 1)` -> `n_local = (8 - 1)` -> `n_local = 7`.
 ```
 hmn_fork#_ {n:#} {X:uint16} left:^(Hashmap 7 uint16) 
            right:^(Hashmap 7 uint16) = HashmapNode (7 + 1) uint16;
 ```
-Теперь все просто, загружаем левую и правую ветку, и для каждой ветки [повторяем процесс](#начинаем-парсинг-веток).
+Now it's simple, load the left and right branches, and for each branch [repeat the process](#начинаем-парсинг-веток).
 
-##### Разберем загрузку значений
-Продолжая предыдущий пример, разберем загрузку правой ветки, т.е `28[1011100000000000001100001001]` 
+##### Let's analyze the loading of values
+Continuing the previous example, let's look at loading the right branch, i.e. `28[1011100000000000001100001001]`
 
-Перед нами опять `hm_edge`, заполним его известными значениями:
+Before us is `hm_edge` again, fill it with known values:
 ```
 hm_edge#_ {n:#} {X:Type} {l:#} {m:#} label:(HmLabel ~l 7) 
           {7 = (~m) + l} node:(HashmapNode m uint16) = Hashmap 7 uint16;
 ```
 
-Загружаем `HmLabel`, в этот раз перед нами `hml_long`, так как префикс равен `10`.
+Load `HmLabel`, this time we have `hml_long` because the prefix is `10`.
 ```
 hml_long$10 {m:#} n:(#<= m) s:(n * Bit) = HmLabel ~n m;
 ```
-Заполним его:
+Let's fill it in:
 ```
 hml_long$10 {m:#} n:(#<= 7) s:(n * Bit) = HmLabel ~n 7;
 ```
-Перед нами новая конструкция - `n:(#<= 7)`, она обозначает число такого размера, который способен вместить 7, по сути это log2 от числа + 1. Но для простоты можно посчитать количество бит, которое нужно, чтобы записать число 7. 7 в бинарном виде - это `111`, значит нам нужно 3 бита, `n = 3`. 
+Before us is a new construction - `n:(#<= 7)`, it denotes a number of such a size that it can accommodate 7, in fact it is log2 from the number + 1. But for simplicity, you can count the number of bits that you need to write the number 7. 7 in binary form is `111`, so we need 3 bits, `n = 3`. 
 ```
 hml_long$10 {m:#} n:(## 3) s:(n * Bit) = HmLabel ~n 7;
 ```
-Загружаем `n`, получаем `111`, то есть 7 (совпадение). Далее загружаем `s`, 7 бит - `0000000`. `s` - это часть ключа. 
+We load `n`, we get `111`, that is 7 (coincidence). Next, load `s`, 7 bits - `0000000`. `s` is part of the key.
 
-Возвращаемся наверх и заполняем полученный `l`:
+We return to the top and fill in the resulting `l`:
 ```
 hm_edge#_ {n:#} {X:Type} {l:#} {m:#} label:(HmLabel 7 7) 
           {7 = (~m) + 7} node:(HashmapNode m uint16) = Hashmap 7 uint16;
 ```
-Вычисляем `m`, `m = 7 - 7`, `m = 0`.
+Calculate `m`, `m = 7 - 7`, `m = 0`.
 
-Так как `m = 0`, мы добрались до значения, и в качестве HashmapNode применима структура:
+Since `m = 0`, we got to the value, and the structure is applicable as a HashmapNode:
 ```
 hmn_leaf#_ {X:Type} value:X = HashmapNode 0 X;
 ```
-Тут все просто: подставляем наш тип uint16 и загружаем значение. Оставшиеся 16 бит `0000001100001001` в десятичном виде - это 777, наше значение.
+Everything is simple here: we substitute our uint16 type and load the value. The remaining 16 bits of `0000001100001001` in decimal form is 777, our value.
 
-Теперь восстановим ключ. Собираем воедино все части ключей, идущие над нами (возвращаемся наверх по тому же пути), и добавляем по 1 биту за каждое ответвление. Если мы шли по правой ветке, то добавляем 1, если по левой - 0. Если над нами был не пустой HmLabel, то добавляем его биты в ключ.
+Now let's restore the key. We collect together all the parts of the keys that go above us (we return to the top along the same path), and add 1 bit for each branch. If we went along the right branch, then we add 1, if along the left - 0. If there was a non-empty HmLabel above us, then we add its bits to the key.
 
-В нашем случае берем 7 бит из HmLabel `0000000` и перед ними добавляем 1, засчет того, что мы добрались до значения по правой ветке. Получаем 8 бит `10000000`, наш ключ - это число `128`.
+In our case, we take 7 bits from HmLabel `0000000` and add 1 in front of them, due to the fact that we got to the value on the right branch. We get 8 bits `10000000`, our key is the number `128`.
 
-#### Другие виды Hashmap
-Существуют также другие виды словарей, у всех них одинаковая суть и, разобравшись с загрузкой основного Hashmap, вы сможете по тому же принципу загрузить другие виды.
+#### Other types of Hashmap
+There are also other types of dictionaries, they all have the same essence and, having figured out how to load the main Hashmap, you can load other types according to the same principle.
 
 ##### HashmapAugE
 ```
@@ -223,7 +222,7 @@ ahme_empty$0 {n:#} {X:Type} {Y:Type} extra:Y
 ahme_root$1 {n:#} {X:Type} {Y:Type} root:^(HashmapAug n X Y) 
   extra:Y = HashmapAugE n X Y;
 ```
-Отличие от обычного Hashmap - наличие `extra:Y` поля в каждой ноде (не только в листьях со значениями).
+The difference from a regular Hashmap is the presence of an `extra:Y` field in each node (not just in leafs with values).
 
 ##### PfxHashmap
 ```
@@ -239,7 +238,7 @@ phme_empty$0 {n:#} {X:Type} = PfxHashmapE n X;
 phme_root$1 {n:#} {X:Type} root:^(PfxHashmap n X) 
             = PfxHashmapE n X;
 ```
-Отличие от обычного Hashmap - возможность хранить ключи разной длины, засчет тега у нод `phmn_leaf$0`, `phmn_fork$1`.
+The difference from the usual Hashmap is the ability to store keys of different lengths, due to the tag of the `phmn_leaf$0`, `phmn_fork$1` nodes.
 
 ##### VarHashmap
 ```
@@ -260,7 +259,7 @@ vhme_empty$0 {n:#} {X:Type} = VarHashmapE n X;
 vhme_root$1 {n:#} {X:Type} root:^(VarHashmap n X) 
             = VarHashmapE n X;
 ```
-Отличие от обычного Hashmap - возможность хранить ключи разной длины, засчет тега у нод `vhmn_leaf$00`, `vhmn_fork$01`. При этом `VarHashmap` способен формировать общий префикс значений (дочерний мап), засчет `vhmn_cont$1`.
+The difference from the usual Hashmap is the ability to store keys of different lengths, due to the tag of the `vhmn_leaf$00`, `vhmn_fork$01` nodes. At the same time, `VarHashmap` is able to form a common value prefix (child map), at the expense of `vhmn_cont$1`.
 
 ##### BinTree
 ```
@@ -268,4 +267,4 @@ bta_leaf$0 {X:Type} {Y:Type} extra:Y leaf:X = BinTreeAug X Y;
 bta_fork$1 {X:Type} {Y:Type} left:^(BinTreeAug X Y) 
            right:^(BinTreeAug X Y) extra:Y = BinTreeAug X Y;
 ```
-Простое бинарное дерево: принцип формирования ключа, как у Hashmap, но без label'ов, только засчет префиксов веток.
+A simple binary tree: the principle of key generation, like Hashmap, but without labels, only counting branch prefixes.
