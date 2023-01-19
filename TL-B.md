@@ -1,26 +1,26 @@
 # TL-B
-В данном разделе отдельно разобраны сложные и неочевидные TL-B структуры. Для начала рекомендую ознакомиться с [базовой документацией](https://github.com/tonstack/ton-docs/tree/main/TL-B)
+In this section, complex and non-obvious TL-B structures are analyzed separately. To get started, I recommend reading the [base documentation](https://github.com/tonstack/ton-docs/tree/main/TL-B)
 
 ### Unary
-Unary обычно используется для определения динамического размера в таких структурах, как [hml_short](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L29).
+Unary is commonly used for dynamic sizing in structures such as [hml_short](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L29).
 
-Unary имеет 2 варианта:
+Unary has 2 options:
 ```
 unary_zero$0 = Unary ~0;
 unary_succ$1 {n:#} x:(Unary ~n) = Unary ~(n + 1);
 ```
 
-С `unary_zero` все просто: если первый бит 0, значит искомое число - это 0. 
+With `unary_zero` everything is simple: if the first bit is 0, then the number you are looking for is 0.
 
-`unary_succ`, устроен интереснее, он загружается рекурсивно и имеет значение `~(n + 1)`. Это значит, что он вызывает сам себя до тех пор, пока мы не наткнемся на `unary_zero`. Иными словами, искомое значение будет равно количеству единиц, идущих подряд. 
+`unary_succ` is more interesting, it is loaded recursively and has the value `~(n + 1)`. This means that it calls itself until we hit `unary_zero`. In other words, the desired value will be equal to the number of units in a row.
 
-Разберем парсинг `1110`.
+Let's analyze parsing `1110`.
 
-Цепочка вызовов будет следующая:
+The call chain will be as follows:
 ```unary_succ$1 -> unary_succ$1 -> unary_succ$1 -> unary_zero$0```
 
-Как только мы дошли до `unary_zero`, значение возвращается наверх, как в рекурсивном вызове функции.
-Теперь, чтобы понять результат, пойдем по пути возвращаемого значения, то есть с конца:
+Once we get to `unary_zero`, the value is returned to the top, just like in a recursive function call.
+Now, to understand the result, let's go along the return value path, that is, from the end:
 ```0 -> ~(0 + 1) -> ~(1 + 1) -> ~(2 + 1) -> 3```
 
 ### Either
@@ -28,27 +28,27 @@ unary_succ$1 {n:#} x:(Unary ~n) = Unary ~(n + 1);
 left$0 {X:Type} {Y:Type} value:X = Either X Y;
 right$1 {X:Type} {Y:Type} value:Y = Either X Y;
 ```
-Используется, когда возможен один из двух типов, при этом выбор типа зависит от бита префикса, если 0 - сериализуется левый тип, если 1 - правый.
-Применяется, например, при сериализации сообщений, когда body может быть как частью основной ячейки, так и ссылкой.
+It is used when one of two types is possible, while the choice of type depends on the prefix bit, if 0 - the left type is serialized, if 1 - the right one.
+It is used, for example, when serializing messages, when body can be either part of the main cell or a link.
 
 ### Maybe
 ```
 nothing$0 {X:Type} = Maybe X;
 just$1 {X:Type} value:X = Maybe X;
 ```
-Используется для опциональных значений, если первый бит равен 0 - само значение не сериализуется (пропускается), если 1 - сериализуется.
+Used for optional values, if the first bit is 0 - the value itself is not serialized (skipped), if 1 - serialized.
 
 ### Both
 ```
 pair$_ {X:Type} {Y:Type} first:X second:Y = Both X Y;
 ```
-Обычная пара - сериализуются оба типа, друг за другом, без условий.
+Normal pair - both types are serialized, one after the other, without conditions.
 
 ### Hashmap
 
-В качестве примера работы со сложными TL-B струкутрами разберем `Hashmap`, который является структурой для хранения `dict` из FunC кода смарт-контрактов.
+As an example of working with complex TL-B structures, let's take a look at `Hashmap`, which is a structure for storing `dict` from FunC smart contract code.
 
-Для сериализации Hashmap с фиксированной длиной ключа используются следующие TL-B структуры:
+The following TL-B structures are used to serialize a Hashmap with a fixed key length:
 ```
 hm_edge#_ {n:#} {X:Type} {l:#} {m:#} label:(HmLabel ~l n) 
           {n = (~m) + l} node:(HashmapNode m X) = Hashmap n X;
@@ -67,11 +67,11 @@ unary_succ$1 {n:#} x:(Unary ~n) = Unary ~(n + 1);
 hme_empty$0 {n:#} {X:Type} = HashmapE n X;
 hme_root$1 {n:#} {X:Type} root:^(Hashmap n X) = HashmapE n X;
 ```
-Где корневой структурой является `HashmapE`. Он может иметь одно из состояний: `hme_empty` либо `hme_root`.
+Where the root structure is `HashmapE`. It can have one of the states: `hme_empty` or `hme_root`.
 
-#### Пример парсинга Hashmap
+#### Hashmap parsing example
 
-Для примера рассмотрим следующий Cell, приведенный в двоичный вид.
+For example, consider the following Cell, given in binary form.
 ```
 1[1] -> {
   2[00] -> {
@@ -84,19 +84,19 @@ hme_root$1 {n:#} {X:Type} root:^(Hashmap n X) = HashmapE n X;
 }
 ```
 
-Данный Cell это `HashmapE` c размером ключа 8 бит, а его значения это `uint16` числа. Т.е `HashmapE 8 uint16`. Он имеет 3 ключа:
+This Cell is a `HashmapE` with a key size of 8 bits and its values are `uint16` numbers. i.e. `HashmapE 8 uint16`. It has 3 keys:
 ```
 1 = 777
 17 = 111
 128 = 777
 ```
 
-Для его парсинга нам нужно заранее знать, какую структуру использовать, `hme_empty` либо `hme_root`. Мы можем определить это по префиксу, у empty это 1 бит равный 0 (`hme_empty$0`), у root это 1 бит равный 1 (`hme_root$1`). Читаем первый бит, он равен единице (`1[1]`), значит перед нами `hme_root`.
+To parse it, we need to know in advance which structure to use, `hme_empty` or `hme_root`. We can determine this by prefix, empty is 1 bit 0 (`hme_empty$0`), root is 1 bit 1 (`hme_root$1`). We read the first bit, it is equal to one (`1[1]`), which means we have `hme_root`.
 
-Заполним переменные структуры известными значениями, получаем:
+Let's fill the structure variables with known values, we get:
 `hme_root$1 {n:#} {X:Type} root:^(Hashmap 8 uint16) = HashmapE 8 uint16;`
 
-1 бит префикс уже прочитан, то, что внутри `{}`, является условиями и не читается. (`{n:#}` обозначает, что n - это любое число uint32, `{X:Type}` обозначет, что X - это любой тип. Следующее, что нам нужно прочитать, - это `root:^(Hashmap 8 uint16)`, `^` обозначает ссылку, загрузим ее. Получаем:
+1 bit prefix is already read, what's inside `{}` are conditions and not read. (`{n:#}` means that n is any uint32 number, `{X:Type}` means that X is any type. The next thing we need to read is `root:^(Hashmap 8 uint16)`, `^` stands for a link, load it.
 ```
 2[00] -> {
     7[1001000] -> {
