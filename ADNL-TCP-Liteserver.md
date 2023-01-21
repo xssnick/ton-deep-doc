@@ -2,7 +2,7 @@
 ## ADNL TCP + Liteserver
 This is the lower level protocol on which all interaction in the TON network is built, it can work on top of any protocol, but is most often used on top of TCP and UDP. UDP is used for communication between nodes, and TCP is used for communication with lite servers.
 
-Now we will analyze ADNL running over TCP and learn how to interact with light servers directly.
+Now we will analyze ADNL running over TCP and learn how to interact with lite servers directly.
 
 In the TCP version of ADNL, network nodes use public keys ed25519 as addresses and establish a connection using a shared key obtained using the Elliptic Curve Diffie-Hellman procedure - ECDH.
 
@@ -17,7 +17,7 @@ Each ADNL TCP packet, except for the handshake, has the following structure:
 The entire packet, including the size, is **AES-CTR** encrypted.
 After decryption, it is necessary to check whether the checksum matches the data, to check, you just need to calculate the checksum yourself and compare the result with what we have in the packet.
 
-The handshake packet is an exception, it is transmitted in a partially clear form and is described in the next chapter.
+The handshake packet is an exception, it is transmitted in a partially unencrypted form and is described in the next chapter.
 
 
 ### Establishing a connection
@@ -58,7 +58,7 @@ It is optimal to send a ping packet about once every 5 seconds. This is necessar
 
 The ping packet, like all the others, is built according to the standard schema described [above](#package-structure), and carries the request ID and ping ID as payload data.
 
-Let's find the desired schema for the ping request [here](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L35) and calculate the scheme id as 
+Let's find the desired schema for the ping request [here](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L35) and calculate the schema id as 
 `crc32_IEEEE("tcp.ping random_id:long = tcp.Pong")`. When converted to little endian bytes, we get **9a2b084d**.
 
 Thus, our ADNL ping packet will look like this:
@@ -70,7 +70,7 @@ Thus, our ADNL ping packet will look like this:
 
 We send our packet and wait for [tcp.pong](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L23), `random_id` will be equal to the one we sent to ping.
 
-### Receiving information from a light server
+### Receiving information from a lite server
 All requests that are aimed at obtaining information from the blockchain are wrapped in [LiteServer Query](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L83) schema, which in turn is wrapped in [ADNL Query](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L22) schema.
 
 LiteQuery:
@@ -87,7 +87,7 @@ LiteQuery is passed inside ADNLQuery, as `query:bytes`, and the final query is p
 Now, since we already know how to generate TL packets for the Lite API, we can request information about the current TON masterchain block. The masterchain block is used in many further requests as an input parameter to indicate the state (moment) in which we need information.
 
 ##### getMasterchainInfo
-We are looking for the [TL schema we need](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L60), calculate its ID and build the package:
+We are looking for the [TL schema we need](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L60), calculate its ID and build the packet:
 
 * 4 bytes of packet size in little endian -> 64 + (4+32+(1+4+(1+4+3)+3)) = **116**
 * 32 bytes nonce -> random 32 bytes
@@ -97,8 +97,8 @@ We are looking for the [TL schema we need](https://github.com/ton-blockchain/ton
 * * 4 byte of ID LiteQuery schema -> **df068c79**
 * * * 1 byte array size -> **4**
 * * * 4 bytes of ID getMasterchainInfo schema -> **2ee6b589**
-* * * 3 null bytes of padding (alignment to 8)
-* * 3 null bytes of padding (alignment to 16)
+* * * 3 zero bytes of padding (alignment to 8)
+* * 3 zero bytes of padding (alignment to 16)
 * 32 bytes of checksum SHA256 from nonce and payload
 
 Packet example in hex:
@@ -116,9 +116,9 @@ Packet example in hex:
 ac2253594c86bd308ed631d57a63db4ab21279e9382e416128b58ee95897e164     -> sha256
 ```
 
-In response, we expect to receive [liteServer.masterchainInfo](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L30), consisting of  last:[ton.blockIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/tonlib_api.tl#L51) state_root_hash:int256 и init:[tonNode.zeroStateIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L359).
+In response, we expect to receive [liteServer.masterchainInfo](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L30), consisting of last:[ton.blockIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/tonlib_api.tl#L51) state_root_hash:int256 и init:[tonNode.zeroStateIdExt](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/ton_api.tl#L359).
 
-The received packet is deserialized in the same way as the sent one - he same algorithm, but in the opposite direction, except that the response is wrapped only in [ADNLAnswer](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L23).
+The received packet is deserialized in the same way as the sent one - has same algorithm, but in the opposite direction, except that the response is wrapped only in [ADNLAnswer](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L23).
 
 After decoding the response, we get a packet of the form:
 ```
@@ -144,17 +144,17 @@ After decoding the response, we get a packet of the form:
 ```
 
 ##### runSmcMethod
-We already know how to get the masterchain block, so now we can call any light server methods.
+We already know how to get the masterchain block, so now we can call any lite server methods.
 Let's analyze **runSmcMethod** - this is a method that calls a function from a smart contract and returns a result.  Here we need to understand some new data types such as [TL-B](/TL-B.md), [Cell](https://ton.org/docs/learn/overviews/Cells) и [BoC](/Cells-BoC.md#bag-of-cells).
 
 To execute the smart contract method, we need to send a request using the TL schema:
 `liteServer.runSmcMethod mode:# id:tonNode.blockIdExt account:liteServer.accountId method_id:long params:bytes = liteServer.RunMethodResult`
 
-And wait for a response like:
+And wait for a response with schema:
 `liteServer.runMethodResult mode:# id:tonNode.blockIdExt shardblk:tonNode.blockIdExt shard_proof:mode.0?bytes proof:mode.0?bytes state_proof:mode.1?bytes init_c7:mode.3?bytes lib_extras:mode.4?bytes exit_code:int result:mode.2?bytes = liteServer.RunMethodResult;`
 
 In the request, we see the following fields:
-1. mode:# - uint32 bitmask of what we want to see in the response, for example, result:mode.2?bytes will only be present in the response if the bit with index 2 is one.
+1. mode:# - uint32 bitmask of what we want to see in the response, for example, result:mode.2?bytes will only be present in the response if the bit with index 2 is set to one.
 2. id:tonNode.blockIdExt - is our master block state that we got in the previous chapter.
 3. account:[liteServer.accountId](https://github.com/ton-blockchain/ton/blob/master/tl/generate/scheme/lite_api.tl#L27) - workchain and smart contract address data.
 4. method_id:long - 8 bytes, in which crc16 is written with the XMODEM table on behalf of the called method + bit 17 is set [[Calculation]](https://github.com/xssnick/tonutils-go/blob/88f83bc3554ca78453dd1a42e9e9ea82554e3dd2/ton/runmethod.go#L16)
@@ -235,7 +235,7 @@ Let's analyze the AccountState TL schema:
 ```
 liteServer.accountState id:tonNode.blockIdExt shardblk:tonNode.blockIdExt shard_proof:bytes proof:bytes state:bytes = liteServer.AccountState;
 ```
-1. `id` - is our main block, regarding which we got the data.
+1. `id` - is our master block, regarding which we got the data.
 2. `shardblk` - workchain shard block where our account is located, regarding which we received data.
 3. `shard_proof` - merkle proof of a shard block.
 4. `proof` - merkle proof of account status.
@@ -430,20 +430,20 @@ var_uint$_ {n:#} len:(#< n) value:(uint (len * 8)) = VarUInteger n;
 ```
 In our case, n will be equal to 7. In len we will have `(#< 7)` which means the number of bits that can hold a number up to 7. You can determine it by translating 7-1=6 into binary form - `110`, we get 3 bits, so length len = 3 bits. And value is `(uint (len * 8))`. To determine it, we need to read 3 bits of the length, get a number and multiply by 8, this will be the size of `value`, that is, the number of bits that need to be read to get the value of VarUInteger.
 
-Read `cells:(VarUInteger 7)`, take our next bits from the root cell, look at the next 16 bits to understand, this is `0010011010101000`. We read the first 3 bits of len, this is `001`, i.e. 1, we get the size (uint (1 * 8)), we get uint 8, we read 8 bits, it will be `cells`, `00110101`, i.e. 53 in decimal form . We do the same for `bits` and `public_cells`.
+Read `cells:(VarUInteger 7)`, take our next bits from the root cell, look at the next 16 bits to understand, this is `0010011010101000`. We read the first 3 bits of len, this is `001`, i.e. 1, we get the size (uint (1 * 8)), we get uint 8, we read 8 bits, it will be `cells`, `00110101`, i.e. 53 in decimal form. We do the same for `bits` and `public_cells`.
 
-We successfully read `used:StorageUsed`, next we have `last_paid:uint32`, everything is simple here, we read 32 bits. Everything is just as simple with `due_payment:(Maybe Grams)` here Maybe, which will be 0, so we skip Grams. But, if Maybe is 1, we can look at the Grams `amount:(VarUInteger 16) = Grams` schema and immediately understand that we already know how to work with this. Like last time, only instead of 7 we have 16.
+We successfully read `used:StorageUsed`, next we have `last_paid:uint32`, we read 32 bits. Everything is just as simple with `due_payment:(Maybe Grams)` here Maybe, which will be 0, so we skip Grams. But, if Maybe is 1, we can look at the Grams `amount:(VarUInteger 16) = Grams` schema and immediately understand that we already know how to work with this. Like last time, only instead of 7 we have 16.
 
 Next we have `storage:AccountStorage` with a schema:
 ```
 account_storage$_ last_trans_lt:uint64 balance:CurrencyCollection state:AccountState = AccountStorage;
 ```
-We read `last_trans_lt:uint64`, this is 64 bits, storing lt of the last account transaction. And finally, the balance represented by the diagram:
+We read `last_trans_lt:uint64`, this is 64 bits, storing lt of the last account transaction. And finally, the balance represented by the schema:
 ```
 currencies$_ grams:Grams other:ExtraCurrencyCollection = CurrencyCollection;
 ```
 From here we will read `grams:Grams` which will be the account balance in nano-tones.
-`grams:Grams` is `VarUInteger 16`, to store 16 (in binary form `10000`, subtracting 1 we get `1111`), then we read the first 4 bits, and multiply the resulting value by 8, then we read the received number of bits, this and will be our balance.
+`grams:Grams` is `VarUInteger 16`, to store 16 (in binary form `10000`, subtracting 1 we get `1111`), then we read the first 4 bits, and multiply the resulting value by 8, then we read the received number of bits, it is our balance.
 
 Let's analyze our remaining bits according to our data:
 ```
@@ -470,7 +470,7 @@ pub.unenc data:bytes = PublicKey   -- ID 0a451fb6
 pk.aes key:int256 = PrivateKey     -- ID 3751e8a5
 ```
 
-As an example, for keys like ED25519 that are used for handshake, the key ID will be the SHA256 hash from
+As an example, for keys of type ED25519 that are used for handshake, the key ID will be the SHA256 hash from
 **[0xC6, 0xB4, 0x13, 0x48]** and **public key**, (36 byte array, prefix + key)
 
 [Code example](https://github.com/xssnick/tonutils-go/blob/2b5e5a0e6ceaf3f28309b0833cb45de81c580acc/liteclient/crypto.go#L16)
