@@ -269,3 +269,45 @@ bta_fork$1 {X:Type} {Y:Type} left:^(BinTreeAug X Y)
            right:^(BinTreeAug X Y) extra:Y = BinTreeAug X Y;
 ```
 Простое бинарное дерево: принцип формирования ключа, как у Hashmap, но без label'ов, только засчет префиксов веток.
+
+### VmTuple
+
+```
+vm_tupref_nil$_ = VmTupleRef 0;
+vm_tupref_single$_ entry:^VmStackValue = VmTupleRef 1;
+vm_tupref_any$_ {n:#} ref:^(VmTuple (n + 2)) = VmTupleRef (n + 2);
+vm_tuple_nil$_ = VmTuple 0;
+vm_tuple_tcons$_ {n:#} head:(VmTupleRef n) tail:^VmStackValue = VmTuple (n + 1);
+vm_stk_tuple#07 len:(## 16) data:(VmTuple len) = VmStackValue;
+```
+
+Tuple является кортежем элементов и в FunC записывается как `[a, b, c]`, VmTuple используется внутри [VmStack](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L833) для сериализации кортежей возвращаемых из методов контрактов.
+
+Разберем сериализацию кортежа из 3 элементов, [44, Cell{00B5BD3EB0}, -1]. 
+В финальном виде она будет выглядеть так:
+```
+24[070003] -> {
+   0[] -> {
+      72[01000000000000002C],
+      8[03] -> {
+         40[00B5BD3EB0]
+      }
+   },
+   2[01FFFFFFFFFFFFFFFF]
+}
+```
+
+Разберем ее подробней, корневая ячейка - это `vm_stk_tuple`, так как префикс = 0x07, следующие 2 байта это `len:(## 16)`, которые равны `0003` == 3.
+
+Далее у нас идет `data:(VmTuple 3)`, для VmTuple у нас есть 2 варианта сериализации - `VmTuple (n + 1)` и `VmTuple 0`, так как наше n > 0 мы используем `VmTuple (n + 1)`. 
+
+Первой ссылкой является `head:(VmTupleRef 2=(3-1))`, для VmTupleRef у нас 3 варианта сериализации: 0, 1 и n+2. Нашел n для VmTupleRef равно 2, мы берем третий вариант.
+
+Первый и единственный элемент для VmTupleRef n+2 это `ref:^(VmTuple (n + 2))`, тоесть `ref:^(VmTuple 2)`.
+
+Наше n для VmTuple это 2, мы берем вариант (n + 1). Читаем `head:(VmTupleRef n)` -> `head:(VmTupleRef 1=(2-1))`. Для `VmTupleRef 1` у нас только одно поле - `entry:^VmStackValue`, которое по сути и является самим значением - `01 000000000000002C`, 0x01 у стека значит int, и 8 байт самого значения = 44.
+
+Мы прочитали `head` и дошли до конца, теперь идем в обратную сторону и читаем `tail:^VmStackValue` поднимаясь вверх, первый tail у нас `03` с сылкой на ячейку. 0x03  у стека значит ячейка, мы просто читаем эту ссылку и сохраняем как значение - `00B5BD3EB0`. Поднимаемся на уровень выше и читаем еще один `tail`, это `01 FFFFFFFFFFFFFFFF`, тоесть int равный -1.
+
+После того как мы дошли до конца - парсинг завершен, складываем все полученные элементы в массив в том порядке в котором мы их получили.
+
