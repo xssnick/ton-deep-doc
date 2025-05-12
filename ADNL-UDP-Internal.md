@@ -237,7 +237,7 @@ Shared key : AABB2233
 First key: AABB2233
 Second key: 3322BBAA
 ```
-It remains to determine which key to use for what, we can do this by comparing the id of our public channel key with the id of the public key of the server channel, converting them to a numerical form - uint256. This approach is used to ensure that both the server and the client determine which key to use for what. If the server uses the first key for encryption, then with this approach the client will always use it for decryption.
+It remains to determine which key to use for what, we can do this by comparing the id of our public key with the id of the public key of the server, converting them to a numerical form - uint256. This approach is used to ensure that both the server and the client determine which key to use for what. If the server uses the first key for encryption, then with this approach the client will always use it for decryption.
 
 The terms of use are:
 ```
